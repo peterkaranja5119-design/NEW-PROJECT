@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 4.6.0
+Stable tag: 5.0.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,12 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.0.0 =
+* Single-event pages restored to the full branded prototype design: framed hero, live countdown, timezone bar, the styled sections (About, How to join, What you'll cover, Agenda, Facilitator), sticky facts sidebar and related events — driven by each event's data.
+* Every section is shown ONLY when the event has data for it; nothing shows placeholder filler. The event's own editor/Elementor body renders inside "About this event", and HTML renders properly.
+* New homepage component + shortcode [aosars_events_home] (and the "AOSARS Events Home" Elementor widget): a featured next-event card with a big live countdown, a swipeable "Coming up next" carousel, timezone chips and a subscribe button — for dropping the events section onto a normal page. Cards open the event permalink.
+* Restored the per-event content fields (lead, What you'll cover, Agenda, facilitator name/bio) that populate the single-page sections.
 
 = 4.6.0 =
 * Portal cards (and the next-event / related links) now open the event's own permalink page, so a click lands on the full page you build in Elementor rather than the in-portal quick view.

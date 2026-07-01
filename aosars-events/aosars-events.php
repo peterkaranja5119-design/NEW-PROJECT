@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           4.6.0
+ * Version:           5.0.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '4.6.0' );
+define( 'AOSEV_VER', '5.0.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -334,6 +334,9 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     .replace(/<br\s*\/?>/gi," ")
     .replace(/<[^>]*>/g,"")
     .replace(/\s+/g," ").trim();}
+  function initials(s){var w=String(s||"").trim().split(/\s+/).filter(Boolean);
+    if(!w.length)return "AOSARS";
+    return ((w[0][0]||"")+(w.length>1?(w[w.length-1][0]||""):"")).toUpperCase()||"AOSARS";}
   function timeOnly(ms){return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz})+" "+tzLabel;}
   function dateBadge(ms){var d=new Date(ms),td=new Date(now);
     var ds=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz});
@@ -452,13 +455,41 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     var mode=e.mode||"Online";
     var isPerson=(mode==="In-person"), isHybrid=(mode==="Hybrid"), isOnline=!isPerson&&!isHybrid;
     var hasMeet=!!meet&&(isOnline||isHybrid);
-    var rel=others.map(function(o){return cardHTML(o);}).join("");
     var platformLabel=isPerson?"Location":"Platform";
-    // No placeholder sections: the body is whatever the author writes (post content
-    // or, on the permalink, their Elementor/editor layout). Suppressed in append
-    // mode because the theme already prints the content above the chrome.
-    var appendMode=!!(state&&state.append);
-    var bodyHTML=(!appendMode&&e.body)?'<div class="rich sbody">'+e.body+'</div>':'';
+    var rel=others.map(function(o){return cardHTML(o);}).join("");
+
+    /* ----- main-column sections; each is OMITTED when the event has no data for it ----- */
+    var secs="";
+    var about=(e.leadH||"")+(e.body||"");
+    if(!about&&e.lead){ about='<p>'+esc(e.lead)+'</p>'; }
+    if(about){ secs+='<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+about+'</div></div>'; }
+
+    var joinInner="";
+    if(hasMeet){
+      joinInner+='<p class="meet-sub">This session runs live online on Google Meet. The joining link is posted right here, so you can save it now.</p>'+
+        '<div class="meet-link"><span class="meet-ic">&#128249;</span><span class="meet-url">meet.google.com/'+esc(meet)+'</span><button class="meet-copy" data-act="copy-meet" data-link="https://meet.google.com/'+esc(meet)+'">Copy link</button></div>'+
+        '<div class="meet-actions"><a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a></div>';
+    }
+    if(isPerson||isHybrid){
+      var loc=esc(e.venue||"")+(e.addr?((e.venue?' &middot; ':'')+esc(e.addr)):"");
+      if(loc){ joinInner+='<div class="meet-link"'+(hasMeet?' style="margin-top:12px"':'')+'><span class="meet-ic">&#128205;</span><span class="meet-url" style="white-space:normal">'+loc+'</span></div>'; }
+    }
+    if(joinInner){
+      var joinHead=isPerson?"Where to find us":(isHybrid?"How to join":"Join on Google Meet");
+      secs+='<div class="sec"><span class="sec-eyebrow">How to join</span><h2>'+esc(joinHead)+'</h2>'+joinInner+'</div>';
+    }
+
+    if(e.covers&&e.covers.length){
+      secs+='<div class="sec"><span class="sec-eyebrow">What you\'ll learn</span><h2>What you\'ll cover</h2><ul class="checks">'+e.covers.map(function(c){return '<li><span class="ck">&#10003;</span> <span class="rich">'+c+'</span></li>';}).join("")+'</ul></div>';
+    }
+    if(e.agenda&&e.agenda.length){
+      secs+='<div class="sec"><span class="sec-eyebrow">Run of show</span><h2>Agenda</h2><div class="agenda">'+e.agenda.map(function(r){return '<div class="arow"><span class="at">'+esc(r[0])+'</span><span class="rich">'+r[1]+'</span></div>';}).join("")+'</div></div>';
+    }
+    if(e.facilName||e.facilBio){
+      var av=e.facilName?initials(e.facilName):"AOSARS";
+      secs+='<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>'+esc(e.facilName?("Led by "+e.facilName):"Your facilitator")+'</h2><div class="facil"><div class="facil-av">'+esc(av)+'</div><div class="facil-b">'+(e.facilName?'<div class="facil-n">'+esc(e.facilName)+'</div>':'')+'<div class="facil-d rich">'+(e.facilBio||"")+'</div></div></div></div>';
+    }
+
     var joinBtn=hasMeet?'<a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a>':'';
     var facts='<div class="panel"><h3>Event details</h3><div class="facts">'+
       '<div class="fact"><span class="fi">&#128197;</span><div><div class="fk">Date &amp; time</div><div class="fv" id="sFacts">'+fullDate(e)+'</div></div></div>'+
@@ -479,9 +510,8 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       (e.img?'<div class="bframe"><img class="bphoto" src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>':'')+
       '<section class="cdband"><div class="lbl"><i></i> Starts in</div><div class="when" id="sWhen">'+fullDate(e)+'</div>'+clockHTML("sh",true)+'</section>'+
       tzbarHTML();
-    // With a body: two columns (body + sticky facts). Without: single column, facts then related.
-    var layout=bodyHTML
-      ? '<div class="layout"><div class="main">'+bodyHTML+'</div><aside class="sticky">'+facts+relBlock+'</aside></div>'
+    var layout=secs
+      ? '<div class="layout"><div class="main">'+secs+'</div><aside class="sticky">'+facts+relBlock+'</aside></div>'
       : '<div class="layout nobody"><div class="main">'+facts+'</div><aside class="sticky">'+relBlock+'</aside></div>';
     return chromeTop+layout;
   }
@@ -552,6 +582,188 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
 AOSEV_JS_END
 );
 
+/* ---- embedded HOME component assets (prototype: featured next event + carousel) ---- */
+define( 'AOSEV_HOME_CSS', <<<'AOSEV_HOME_CSS_END'
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800;900&display=swap');
+.aosev-home{--indigo:#393464;--cyan:#00AEFE;--ink:#000;--ink-soft:#000;--ink-faint:#393464;--ink-faded:#393464;--rule:#e6e6ec;--page:#f5f5f8;--tint:#e6f6ff;--indigo-tint:#eceaf6;--rule-soft:rgba(57,52,100,.14);--cyan-deep:#00AEFE;--shadow-sm:0 4px 16px rgba(57,52,100,.08);--shadow-md:0 14px 38px rgba(57,52,100,.14);font-family:'Montserrat',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:var(--ink);line-height:1.6;}
+.aosev-home *{box-sizing:border-box;}
+.aosev-home a{color:inherit;text-decoration:none;}
+.aosev-home .evt{max-width:1180px;margin:0 auto;padding:8px 0;}
+.aosev-home .evt-head{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;flex-wrap:wrap;margin-bottom:24px;}
+.aosev-home .eyebrow{display:inline-flex;align-items:center;gap:9px;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--indigo);font-weight:800;}
+.aosev-home .eyebrow b{width:18px;height:4px;border-radius:2px;background:var(--cyan);display:inline-block;}
+.aosev-home .evt-head h2{margin:9px 0 0;font-size:32px;font-weight:800;color:var(--indigo);letter-spacing:-.5px;}
+.aosev-home .head-r{display:flex;flex-direction:column;align-items:flex-end;gap:11px;}
+.aosev-home .viewall{font-size:14px;font-weight:800;color:var(--indigo);display:inline-flex;align-items:center;gap:7px;cursor:pointer;}
+.aosev-home .viewall i{font-style:normal;color:var(--cyan);}
+.aosev-home .tzwrap{display:flex;align-items:center;gap:8px;}
+.aosev-home .tzwrap .lbl{font-size:11px;font-weight:700;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.5px;}
+.aosev-home .tz{display:inline-flex;background:var(--indigo-tint);border-radius:9px;padding:3px;gap:2px;}
+.aosev-home .tz button{border:0;background:none;font-size:11.5px;font-weight:800;color:var(--ink-soft);padding:5px 9px;border-radius:7px;cursor:pointer;font-family:inherit;}
+.aosev-home .tz button.on{background:#fff;color:var(--indigo);box-shadow:0 1px 4px rgba(57,52,100,.16);}
+.aosev-home .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:999px;padding:9px 22px;cursor:pointer;border:1px solid var(--rule);background:#fff;color:var(--indigo);font-family:inherit;}
+.aosev-home .btn.primary{background:var(--cyan);border-color:var(--cyan);color:var(--indigo);font-weight:800;}
+.aosev-home .lvclk{display:flex;gap:9px;}
+.aosev-home .lvt{position:relative;overflow:hidden;background:var(--indigo);border-radius:12px;flex:1;min-width:0;padding:15px 0 11px;text-align:center;}
+.aosev-home .lvt .bar{position:absolute;left:0;bottom:0;width:6px;height:0;background:var(--cyan);transition:height .8s ease;}
+.aosev-home .lvt b{display:block;font-size:34px;font-weight:800;color:#fff;font-variant-numeric:tabular-nums;line-height:1;letter-spacing:-1px;}
+.aosev-home .lvt i{display:block;margin-top:8px;font-size:9px;letter-spacing:.6px;text-transform:uppercase;color:rgba(255,255,255,.62);font-style:normal;font-weight:800;}
+.aosev-home .up-h{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-faint);font-weight:800;margin:36px 0 16px;}
+.aosev-home .caro{position:relative;}
+.aosev-home .caro-track{display:flex;gap:20px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;padding:4px 2px 14px;scrollbar-width:none;}
+.aosev-home .caro-track::-webkit-scrollbar{display:none;}
+.aosev-home .card{border:1.5px solid var(--rule-soft);border-radius:16px;overflow:hidden;background:#fff;display:flex;flex-direction:column;height:100%;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .26s cubic-bezier(.2,.7,.3,1),box-shadow .26s ease,border-color .26s ease;flex:0 0 calc((100% - 40px)/3);scroll-snap-align:start;}
+@media(max-width:819px){.aosev-home .card{flex:0 0 calc((100% - 20px)/2);}}
+@media(max-width:559px){.aosev-home .card{flex:0 0 100%;}}
+.aosev-home .card:hover,.aosev-home .card:focus-within{transform:translateY(-8px);box-shadow:var(--shadow-md);border-color:var(--cyan);}
+.aosev-home .card__media{position:relative;aspect-ratio:16/9;overflow:hidden;background:linear-gradient(135deg,var(--indigo-tint),var(--tint));}
+.aosev-home .card__media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;transition:transform .45s ease;}
+.aosev-home .card:hover .card__media img{transform:scale(1.06);}
+.aosev-home .card__media .scrim{position:absolute;inset:0;z-index:3;background:linear-gradient(180deg,rgba(38,33,92,.30),rgba(38,33,92,0) 42%);}
+.aosev-home .date{position:absolute;left:12px;top:12px;z-index:4;background:#fff;color:var(--indigo);font-size:10.5px;font-weight:800;letter-spacing:.4px;padding:6px 9px;border-radius:9px;line-height:1.05;text-align:center;box-shadow:0 2px 8px rgba(0,0,0,.14);}
+.aosev-home .date .d{font-size:16px;display:block;letter-spacing:0;}
+.aosev-home .mode{position:absolute;right:12px;top:12px;z-index:4;font-size:11.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 11px;border-radius:20px;box-shadow:0 2px 8px rgba(0,0,0,.14);}
+.aosev-home .m-person{background:#fff;color:var(--indigo);}
+.aosev-home .m-virtual{background:#e7e3fa;color:#393464;}
+.aosev-home .m-hybrid{background:var(--cyan);color:var(--indigo);}
+.aosev-home .card__body{padding:20px;display:flex;flex-direction:column;gap:9px;flex:1;}
+.aosev-home .card__body h3{font-size:1.05rem;font-weight:800;color:var(--indigo);line-height:1.3;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.aosev-home .cdesc{font-size:.9rem;font-weight:500;color:var(--ink-soft);line-height:1.5;margin:2px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.aosev-home .row{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink-soft);}
+.aosev-home .row .g{width:16px;text-align:center;color:var(--ink-faint);flex:none;}
+.aosev-home .time{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
+.aosev-home .cdmini{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:var(--indigo);background:rgba(0,174,254,.10);padding:6px 11px;border-radius:8px;align-self:flex-start;font-variant-numeric:tabular-nums;}
+.aosev-home .cdmini i{width:6px;height:6px;border-radius:50%;background:var(--indigo);display:inline-block;}
+.aosev-home .cdmini.soon{background:var(--cyan);color:var(--indigo);}
+.aosev-home .foot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:6px;}
+.aosev-home .pill{background:var(--tint);color:var(--indigo);padding:4px 11px;border-radius:999px;font-size:11.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;}
+.aosev-home .more{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:800;color:var(--indigo);}
+.aosev-home .more i{font-style:normal;color:var(--cyan);font-size:16px;}
+.aosev-home .feature.card{display:grid;grid-template-columns:1.1fr 1fr;flex:initial;width:auto;height:auto;}
+@media(max-width:760px){.aosev-home .feature.card{grid-template-columns:1fr;}}
+.aosev-home .feat-media{position:relative;min-height:340px;overflow:hidden;background:linear-gradient(135deg,var(--indigo-tint),var(--tint));}
+@media(max-width:760px){.aosev-home .feat-media{min-height:0;aspect-ratio:16/9;}}
+.aosev-home .feat-media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;transition:transform .45s ease;}
+.aosev-home .feature.card:hover .feat-media img{transform:scale(1.04);}
+.aosev-home .feat-body{padding:24px;display:flex;flex-direction:column;gap:12px;}
+.aosev-home .nu-live{display:inline-flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--indigo);font-weight:800;}
+.aosev-home .nu-live i{width:7px;height:7px;border-radius:50%;background:var(--indigo);animation:aosevhpulse 1.8s infinite;}
+@keyframes aosevhpulse{0%{box-shadow:0 0 0 0 rgba(57,52,100,.5);}70%{box-shadow:0 0 0 8px rgba(57,52,100,0);}100%{box-shadow:0 0 0 0 rgba(57,52,100,0);}}
+.aosev-home .feat-body h3{margin:0;font-size:clamp(20px,2vw,26px);font-weight:800;color:var(--indigo);line-height:1.2;}
+.aosev-home .feat-when{font-size:13px;color:#393464;font-weight:600;margin:-2px 0 4px;}
+.aosev-home .feat-body .cdesc{-webkit-line-clamp:3;}
+.aosev-home .caro-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:20px;}
+.aosev-home .cbtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--rule);background:#fff;color:var(--indigo);font-size:18px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;}
+.aosev-home .cbtn:hover{background:var(--indigo);color:#fff;border-color:var(--indigo);}
+.aosev-home .dots{display:flex;gap:8px;}
+.aosev-home .dot{width:8px;height:8px;border-radius:50%;border:0;background:var(--rule);cursor:pointer;padding:0;transition:.16s;}
+.aosev-home .dot.on{background:var(--cyan);width:22px;border-radius:999px;}
+.aosev-home .evt-foot{display:flex;align-items:center;justify-content:center;gap:18px;flex-wrap:wrap;margin-top:34px;padding-top:24px;border-top:1px solid var(--rule);}
+@media(prefers-reduced-motion:reduce){.aosev-home *{transition:none!important;animation:none!important;}.aosev-home .caro-track{scroll-behavior:auto;}}
+AOSEV_HOME_CSS_END
+);
+define( 'AOSEV_HOME_JS', <<<'AOSEV_HOME_JS_END'
+(function(){
+  var root=document.getElementById("AOSEV_HOME");
+  if(!root){return;}
+  try{
+  var now=Date.now(), H=3600e3, D=86400e3;
+  var DATA=window.AOSEV_HDATA||{};
+  var EVENTS=((DATA.events)||[]).slice().sort(function(a,b){return a.start-b.start;});
+  var ALL=DATA.allUrl||"";
+  var TZ="Africa/Nairobi", TZLAB="EAT";
+  var ZONES=[["EAT","Africa/Nairobi"],["WAT","Africa/Lagos"],["GMT","Africa/Accra"],["CAT","Africa/Harare"],["SAST","Africa/Johannesburg"]];
+  var EM={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
+  function pad(n){return (n<10?"0":"")+n;}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return EM[c];});}
+  function tOnly(ms){return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:TZ});}
+  function timeOnly(ms){return tOnly(ms)+" "+TZLAB;}
+  function fullWhen(ms){return new Date(ms).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:TZ})+" · "+tOnly(ms)+" "+TZLAB;}
+  function parts(ms){var s=Math.max(0,Math.floor((ms-Date.now())/1000));return{d:Math.floor(s/86400),h:Math.floor(s/3600)%24,m:Math.floor(s/60)%60,s:s%60};}
+  function mini(ms){var p=parts(ms);if(p.d>0)return "Starts in "+p.d+"d "+p.h+"h";if(p.h>0)return "Starts in "+p.h+"h "+p.m+"m";if(p.m>0)return "Starts in "+pad(p.m)+":"+pad(p.s);return (ms-Date.now()>0)?"Starts in "+p.s+"s":"Happening now";}
+  function dateBadge(ms){var ds=new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});var ts=new Date(now).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});if(ds===ts)return '<span class="d">Today</span>';var p=ds.split(" ");return p[1].toUpperCase()+'<span class="d">'+p[0]+'</span>';}
+  function blurbOf(e){return e.blurb||e.lead||"";}
+  var FEAT=EVENTS[0], CARO=EVENTS.slice(1);
+  function cardHTML(e){
+    return '<article class="card" data-perma="'+esc(e.permalink)+'" tabindex="0" role="link" aria-label="Open '+esc(e.t)+'">'+
+      '<div class="card__media"><img src="'+esc(e.img)+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"><span class="scrim"></span>'+
+      '<span class="date">'+dateBadge(e.start)+'</span><span class="mode '+esc(e.m)+'">'+esc(e.mode)+'</span></div>'+
+      '<div class="card__body"><h3>'+esc(e.t)+'</h3><p class="cdesc">'+esc(blurbOf(e))+'</p>'+
+      '<div class="row"><span class="g">&#128337;</span><span class="time" data-t="'+e.start+'">'+timeOnly(e.start)+'</span></div>'+
+      '<span class="cdmini'+((e.start-now)<D?' soon':'')+'" data-cd="'+e.start+'"><i></i><span>'+mini(e.start)+'</span></span>'+
+      '<div class="row"><span class="g">&#128249;</span>'+esc(e.venue)+'</div>'+
+      '<div class="foot"><span class="pill">'+esc(e.cat)+'</span><span class="more">View event <i>&#8594;</i></span></div></div></article>';
+  }
+  function tzChips(){return ZONES.map(function(z){return '<button data-tz="'+z[1]+'" data-lab="'+z[0]+'"'+(z[0]===TZLAB?' class="on"':'')+'>'+z[0]+'</button>';}).join("");}
+  function featHTML(){
+    return '<article class="feature card" data-perma="'+esc(FEAT.permalink)+'" tabindex="0" role="link" aria-label="Open '+esc(FEAT.t)+'">'+
+      '<div class="feat-media"><img src="'+esc(FEAT.img)+'" alt="" onerror="this.style.display=\'none\'"><span class="scrim"></span>'+
+        '<span class="date">'+dateBadge(FEAT.start)+'</span><span class="mode '+esc(FEAT.m)+'">'+esc(FEAT.mode)+'</span></div>'+
+      '<div class="feat-body"><span class="nu-live"><i></i> Next event &middot; starts in</span>'+
+        '<h3>'+esc(FEAT.t)+'</h3><div class="feat-when">'+fullWhen(FEAT.start)+'</div>'+
+        '<p class="cdesc">'+esc(blurbOf(FEAT))+'</p>'+
+        '<div class="lvclk">'+["D","H","M","S"].map(function(k,i){return '<div class="lvt"><span class="bar" data-bar="'+k+'"></span><b data-clk="'+k+'">00</b><i>'+["days","hrs","min","sec"][i]+'</i></div>';}).join("")+'</div>'+
+        '<div class="foot"><span class="pill">'+esc(FEAT.cat)+'</span><span class="more">View event <i>&#8594;</i></span></div></div></article>';
+  }
+  function render(){
+    if(!EVENTS.length){root.innerHTML='<div class="evt"><div class="evt-head"><div><div class="eyebrow"><b></b> What\'s on</div><h2>Upcoming events</h2></div></div><p style="color:var(--ink-faint)">No upcoming events are scheduled yet. Please check back soon.</p></div>';return;}
+    root.innerHTML='<div class="evt">'+
+      '<div class="evt-head"><div><div class="eyebrow"><b></b> What\'s on</div><h2>Upcoming events</h2></div>'+
+        '<div class="head-r">'+(ALL?'<a class="viewall" href="'+esc(ALL)+'">View all events <i>&#8594;</i></a>':'')+
+          '<div class="tzwrap"><span class="lbl">Times in</span><div class="tz" data-tzwrap>'+tzChips()+'</div></div></div></div>'+
+      featHTML()+
+      (CARO.length?('<div class="up-h">Coming up next</div><div class="caro"><div class="caro-track" data-track>'+CARO.map(cardHTML).join("")+'</div>'+
+        '<div class="caro-nav"><button class="cbtn" data-prev aria-label="Previous">&#8249;</button><div class="dots" data-dots></div><button class="cbtn" data-next aria-label="Next">&#8250;</button></div></div>'):'')+
+      '<div class="evt-foot">'+(ALL?'<a class="btn primary" href="'+esc(ALL)+'">Browse the full calendar <span>&#8594;</span></a>':'')+'<a class="btn" data-sub href="#">&#11015; Subscribe (.ics feed)</a></div>'+
+    '</div>';
+    buildCaro();
+    tick();
+  }
+  function tick(){
+    if(!FEAT)return;
+    var p=parts(FEAT.start), fr={D:Math.min(p.d/30,1),H:p.h/24,M:p.m/60,S:p.s/60}, v={D:p.d,H:p.h,M:p.m,S:p.s};
+    ["D","H","M","S"].forEach(function(k){var b=root.querySelector('[data-clk="'+k+'"]');if(b)b.textContent=pad(v[k]);var bar=root.querySelector('[data-bar="'+k+'"]');if(bar)bar.style.height=(fr[k]*100).toFixed(1)+"%";});
+    var ms=root.querySelectorAll('[data-cd]');for(var i=0;i<ms.length;i++){var t=parseInt(ms[i].getAttribute('data-cd'),10);var sp=ms[i].querySelector('span');if(sp)sp.textContent=mini(t);if((t-Date.now())<D)ms[i].classList.add('soon');}
+  }
+  var autoTimer=null;
+  function buildCaro(){
+    var track=root.querySelector('[data-track]'); if(!track)return;
+    var dotsEl=root.querySelector('[data-dots]'), prev=root.querySelector('[data-prev]'), next=root.querySelector('[data-next]');
+    var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches, beh=reduce?"auto":"smooth";
+    function step(){var c=track.children[0];if(!c)return 1;var g=parseFloat(getComputedStyle(track).gap)||20;return c.getBoundingClientRect().width+g;}
+    function maxS(){return track.scrollWidth-track.clientWidth;}
+    function cur(){return Math.round(track.scrollLeft/step());}
+    function sync(){var i=cur();var ds=dotsEl.querySelectorAll('.dot');for(var k=0;k<ds.length;k++){ds[k].classList.toggle('on',k===i);}}
+    dotsEl.innerHTML="";var n=track.children.length;for(var j=0;j<n;j++){(function(k){var b=document.createElement('button');b.className='dot';b.setAttribute('aria-label','Go to card '+(k+1));b.addEventListener('click',function(){track.scrollTo({left:Math.min(k*step(),maxS()),behavior:beh});});dotsEl.appendChild(b);})(j);}
+    sync();
+    if(prev)prev.onclick=function(){var t=track.scrollLeft-step();track.scrollTo({left:t<2?maxS():t,behavior:beh});};
+    if(next)next.onclick=function(){var t=track.scrollLeft+step();track.scrollTo({left:t>maxS()-2?0:t,behavior:beh});};
+    var raf;track.onscroll=function(){if(raf)cancelAnimationFrame(raf);raf=requestAnimationFrame(sync);};
+    if(autoTimer){clearInterval(autoTimer);}
+    var paused=false, caro=root.querySelector('.caro');
+    if(caro){caro.onmouseenter=function(){paused=true;};caro.onmouseleave=function(){paused=false;};caro.addEventListener('focusin',function(){paused=true;});caro.addEventListener('focusout',function(){paused=false;});}
+    autoTimer=setInterval(function(){if(paused)return;var t=track.scrollLeft+step();track.scrollTo({left:t>maxS()-2?0:t,behavior:beh});},4200);
+  }
+  function utc(ms){return new Date(ms).toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";}
+  function subscribe(){
+    var body=EVENTS.map(function(e){return "BEGIN:VEVENT\r\nUID:"+e.id+"@aosars\r\nDTSTAMP:"+utc(now)+"\r\nDTSTART:"+utc(e.start)+"\r\nDTEND:"+utc(e.start+(e.durH||2)*H)+"\r\nSUMMARY:"+e.t+"\r\nLOCATION:"+e.venue+"\r\nEND:VEVENT";}).join("\r\n");
+    var ics="BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//AOSARS//Events//EN\r\nCALSCALE:GREGORIAN\r\n"+body+"\r\nEND:VCALENDAR";
+    var b=new Blob([ics],{type:"text/calendar"}),a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="aosars-events.ics";a.click();
+  }
+  root.addEventListener("click",function(ev){
+    var chip=ev.target.closest("[data-tzwrap] button");
+    if(chip){TZ=chip.getAttribute("data-tz");TZLAB=chip.getAttribute("data-lab");render();return;}
+    if(ev.target.closest("[data-sub]")){ev.preventDefault();subscribe();return;}
+    var card=ev.target.closest("[data-perma]");
+    if(card){var u=card.getAttribute("data-perma");if(u){location.href=u;}}
+  });
+  root.addEventListener("keydown",function(ev){if(ev.key==="Enter"||ev.key===" "){var card=ev.target.closest("[data-perma]");if(card){ev.preventDefault();var u=card.getAttribute("data-perma");if(u){location.href=u;}}}});
+  render();
+  setInterval(tick,1000);
+  }catch(__e){ if(window.console){console.warn("[AOSARS Home]",__e);} }
+})();
+AOSEV_HOME_JS_END
+);
 
 function aosev_guard( $cb ) {
 	return function ( ...$args ) use ( $cb ) {
@@ -684,10 +896,14 @@ function aosev_fields() {
 		'taken'    => array( 'number', __( 'Spots taken', 'aosars-events' ) ),
 		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
 		'summary'  => array( 'textarea', __( 'Card blurb (short text shown on the events grid)', 'aosars-events' ) ),
-		'lead'     => array( 'textarea', __( 'Card blurb override (optional; falls back to the summary/excerpt)', 'aosars-events' ) ),
+		'lead'     => array( 'html', __( 'Lead paragraph (shown under “About this event”; HTML allowed)', 'aosars-events' ) ),
+		'covers'   => array( 'lines', __( "What you'll cover — one point per line (leave blank to hide the section)", 'aosars-events' ) ),
+		'agenda'   => array( 'lines', __( 'Agenda — one per line, e.g. 14:00 Welcome (blank hides the section)', 'aosars-events' ) ),
+		'facil_name' => array( 'text', __( 'Facilitator name (blank hides the facilitator section)', 'aosars-events' ) ),
+		'facil_bio'  => array( 'html', __( 'Facilitator bio (HTML allowed; blank hides the facilitator section)', 'aosars-events' ) ),
 	);
-	// The single-event page body is authored in the WordPress editor / Elementor,
-	// so no per-event section fields are needed here.
+	// Anything richer than these fields is authored in the WordPress editor / Elementor
+	// (the event body) and renders inside the single-page “About this event” area.
 }
 function aosev_box_html( $post ) {
 	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
@@ -749,6 +965,27 @@ function aosev_body_html( $post ) {
 	if ( function_exists( 'do_blocks' ) ) { $c = do_blocks( $c ); }
 	return do_shortcode( wpautop( $c ) );
 }
+/* Safe, display-ready HTML for a stored rich field (bold/links/lists via wp_kses_post). */
+function aosev_rich( $v ) {
+	$v = (string) $v;
+	if ( '' === $v ) { return ''; }
+	return wpautop( wp_kses_post( $v ) );
+}
+/* One trimmed, non-empty item per line (inline HTML preserved). */
+function aosev_lines( $s ) {
+	$out = array();
+	foreach ( preg_split( '/\r\n|\r|\n/', (string) $s ) as $l ) { $l = trim( $l ); if ( '' !== $l ) { $out[] = $l; } }
+	return $out;
+}
+/* Agenda rows: "HH:MM rest" → [time, text]; otherwise ['', text]. */
+function aosev_agenda_rows( $s ) {
+	$rows = array();
+	foreach ( aosev_lines( $s ) as $l ) {
+		if ( preg_match( '/^(\d{1,2}:\d{2})\s+(.*)$/', $l, $m ) ) { $rows[] = array( $m[1], $m[2] ); }
+		else { $rows[] = array( '', $l ); }
+	}
+	return $rows;
+}
 function aosev_json_events( $limit = 200 ) {
 	$rows = array(); $meets = array();
 	$q = new WP_Query( array(
@@ -773,9 +1010,15 @@ function aosev_json_events( $limit = 200 ) {
 			'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
 			'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
 			'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ),
+			'blurb' => wp_strip_all_tags( $g( 'summary' ) ? $g( 'summary' ) : ( $g( 'lead' ) ? $g( 'lead' ) : get_the_excerpt( $id ) ) ),
 			'addr' => $g( 'address' ),
 			'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
-			'body' => aosev_body_html( $p ),
+			'body'   => aosev_body_html( $p ),
+			'leadH'  => aosev_rich( $g( 'lead' ) ),
+			'covers' => aosev_lines( $g( 'covers' ) ),
+			'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
+			'facilName' => $g( 'facil_name' ),
+			'facilBio'  => aosev_rich( $g( 'facil_bio' ) ),
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}
@@ -842,6 +1085,30 @@ function aosev_sc_single( $atts ) {
 }
 add_shortcode( 'aosars_event', 'aosev_sc_single' );
 
+/* Home component: featured next event + "coming up" carousel, for a normal page. */
+function aosev_home_css() {
+	static $d = false; if ( $d ) { return ''; } $d = true;
+	return "<style id=\"aosev-home-css\">\n" . AOSEV_HOME_CSS . "\n</style>";
+}
+function aosev_home_js() {
+	static $d = false; if ( $d ) { return ''; } $d = true;
+	return "<script id=\"aosev-home-js\">\n" . AOSEV_HOME_JS . "\n</script>";
+}
+function aosev_home_mount() {
+	try {
+		list( $events, $meets ) = aosev_json_events();
+		$s    = aosev_settings();
+		$data = array( 'events' => $events, 'allUrl' => isset( $s['all_url'] ) ? $s['all_url'] : '' );
+		$out  = aosev_home_css();
+		$out .= '<script>window.AOSEV_HDATA=' . wp_json_encode( $data ) . ';</script>';
+		$out .= '<div class="aosev-home" id="AOSEV_HOME"></div>';
+		$out .= aosev_home_js();
+		return $out;
+	} catch ( \Throwable $e ) { return ''; }
+}
+function aosev_sc_home( $atts = array() ) { return aosev_home_mount(); }
+add_shortcode( 'aosars_events_home', 'aosev_sc_home' );
+
 /* ---- 6. SINGLE CPT PAGE + SCHEMA ---- */
 add_filter( 'the_content', aosev_guard( 'aosev_append_single' ), 20 );
 function aosev_append_single( $content ) {
@@ -853,9 +1120,10 @@ function aosev_append_single( $content ) {
 	// Behave like a post: if the event page is designed in Elementor, respect that
 	// layout and do not append the default view (add the Single Event widget instead).
 	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return $content; }
-	// Append only the branded chrome (hero, countdown, facts, related). The theme
-	// already prints the author's content above, so the app suppresses its body.
-	return $content . aosev_mount( array( 'view' => 'single', 'id' => $id, 'append' => 1 ) );
+	// Render the full branded single design in place of the raw content. The event's
+	// own body is rendered inside the design's "About this event" area, so we replace
+	// $content (rather than append) to avoid showing it twice.
+	return aosev_mount( array( 'view' => 'single', 'id' => $id ) );
 }
 add_action( 'wp_head', aosev_guard( 'aosev_schema' ) );
 function aosev_schema() {
@@ -933,7 +1201,7 @@ function aosev_el_widgets( $wm = null ) {
 	if ( ! class_exists( 'AOSEV_El_Portal' ) ) { aosev_define_widgets(); }
 	$wm = $wm ? $wm : ( class_exists( '\Elementor\Plugin' ) ? \Elementor\Plugin::instance()->widgets_manager : null );
 	if ( ! $wm ) { return; }
-	foreach ( array( 'AOSEV_El_Portal', 'AOSEV_El_Single' ) as $c ) {
+	foreach ( array( 'AOSEV_El_Portal', 'AOSEV_El_Single', 'AOSEV_El_Home' ) as $c ) {
 		try { if ( method_exists( $wm, 'register' ) ) { $wm->register( new $c() ); } elseif ( method_exists( $wm, 'register_widget_type' ) ) { $wm->register_widget_type( new $c() ); } }
 		catch ( \Throwable $e ) { if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] elementor: ' . $e->getMessage() ); } }
 	}
@@ -957,6 +1225,11 @@ function aosev_define_widgets() {
 			$this->end_controls_section();
 		}
 		protected function render() { $s = $this->get_settings_for_display(); echo aosev_sc_single( array( 'id' => $s['id'] ) ); }
+	}
+	class AOSEV_El_Home extends AOSEV_El_Base {
+		public function get_name() { return 'aosev_home'; }
+		public function get_title() { return __( 'AOSARS Events Home', 'aosars-events' ); }
+		protected function render() { echo aosev_sc_home( array() ); }
 	}
 }
 
@@ -990,6 +1263,7 @@ function aosev_settings_page() {
 	echo '</form><h2>' . esc_html__( 'How to place events', 'aosars-events' ) . '</h2>';
 	echo '<p><code>[aosars_events_portal]</code> ' . esc_html__( 'or the Elementor "AOSARS Events Portal" widget shows the full portal.', 'aosars-events' ) . '</p>';
 	echo '<p><code>[aosars_event id="123"]</code> ' . esc_html__( 'shows one event. Each event also has its own page.', 'aosars-events' ) . '</p>';
+	echo '<p><code>[aosars_events_home]</code> ' . esc_html__( 'or the Elementor "AOSARS Events Home" widget shows the homepage component (featured next event + carousel).', 'aosars-events' ) . '</p>';
 	echo '<p>' . esc_html__( 'Events are edited like posts and can be opened with Edit with Elementor.', 'aosars-events' ) . '</p></div>';
 }
 add_filter( 'site_status_tests', aosev_guard( 'aosev_sh_register' ) );
@@ -997,7 +1271,7 @@ function aosev_sh_register( $t ) { $t['direct']['aosev_events'] = array( 'label'
 function aosev_sh() {
 	$i = array();
 	if ( ! post_type_exists( 'aosars_event' ) ) { $i[] = __( 'the event post type is not registered', 'aosars-events' ); }
-	foreach ( array( 'aosars_events_portal', 'aosars_event' ) as $sc ) { if ( ! shortcode_exists( $sc ) ) { $i[] = sprintf( __( 'shortcode [%s] missing', 'aosars-events' ), $sc ); } }
+	foreach ( array( 'aosars_events_portal', 'aosars_event', 'aosars_events_home' ) as $sc ) { if ( ! shortcode_exists( $sc ) ) { $i[] = sprintf( __( 'shortcode [%s] missing', 'aosars-events' ), $sc ); } }
 	$ok = empty( $i );
 	return array(
 		'label' => $ok ? __( 'AOSARS Events is ready', 'aosars-events' ) : __( 'AOSARS Events needs attention', 'aosars-events' ),
