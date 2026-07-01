@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           4.2.0
+ * Version:           4.3.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '4.2.0' );
+define( 'AOSEV_VER', '4.3.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -281,6 +281,22 @@ define( 'AOSEV_CSS', <<<'AOSEV_CSS_END'
 .aosev-app .moreevents{display:grid;gap:16px;}
 .aosev-app .moreevents-h{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--ink-faint);font-weight:800;display:flex;align-items:center;justify-content:space-between;}
 .aosev-app .moreevents-h a{font-size:12px;color:var(--cyan);text-transform:none;letter-spacing:0;cursor:pointer;font-weight:700;}
+.aosev-app /* rich HTML from event fields */
+  .rich{font-size:15px;color:var(--ink-soft);line-height:1.6;}
+.aosev-app .rich>*:first-child{margin-top:0;}
+.aosev-app .rich>*:last-child{margin-bottom:0;}
+.aosev-app .rich p{margin:0 0 12px;}
+.aosev-app .rich a{color:var(--cyan-deep);text-decoration:underline;text-underline-offset:2px;}
+.aosev-app .rich a:hover{color:var(--indigo);}
+.aosev-app .rich strong,.aosev-app .rich b{color:var(--ink);font-weight:800;}
+.aosev-app .rich em,.aosev-app .rich i{font-style:italic;}
+.aosev-app .rich ul,.aosev-app .rich ol{margin:0 0 12px;padding-left:20px;}
+.aosev-app .rich li{margin:0 0 5px;}
+.aosev-app .rich h3,.aosev-app .rich h4{color:var(--indigo);font-weight:800;margin:0 0 8px;}
+.aosev-app .rich blockquote{margin:0 0 12px;padding:8px 14px;border-left:3px solid var(--cyan);background:var(--tint);border-radius:0 8px 8px 0;}
+.aosev-app .facil-d.rich{font-size:14px;}
+.aosev-app .meet-note.rich{font-size:12.5px;color:var(--ink-soft);}
+.aosev-app .meet-note.rich p{margin:0 0 6px;}
 AOSEV_CSS_END
 );
 define( 'AOSEV_JS', <<<'AOSEV_JS_END'
@@ -304,6 +320,11 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   function pad(n){return (n<10?"0":"")+n;}
   var ESCMAP={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
   function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return ESCMAP[c];});}
+  function stripTags(s){return String(s==null?"":s)
+    .replace(/<\/(p|div|li|h[1-6]|blockquote|tr)>/gi," ")
+    .replace(/<br\s*\/?>/gi," ")
+    .replace(/<[^>]*>/g,"")
+    .replace(/\s+/g," ").trim();}
   function initials(s){var w=String(s||"").trim().split(/\s+/).filter(Boolean);
     if(!w.length)return "AOSARS";
     var out=(w[0][0]||"")+(w.length>1?(w[w.length-1][0]||""):"");
@@ -398,7 +419,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     return '<article class="card'+(full?' full':'')+'" data-act="view-event" data-id="'+e.id+'" tabindex="0">'+
       '<div class="card__media"><span class="ico">'+e.icon+'</span><img src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"><span class="scrim"></span>'+
       '<span class="date">'+dateBadge(e.start)+'</span><span class="mode '+e.m+'">'+e.mode+'</span></div>'+
-      '<div class="card__body"><h3>'+esc(e.t)+'</h3><p class="cdesc">'+esc(e.lead)+'</p>'+
+      '<div class="card__body"><h3>'+esc(e.t)+'</h3><p class="cdesc">'+esc(stripTags(e.lead))+'</p>'+
       '<div class="row"><span class="g">&#128337;</span><span class="time">'+timeOnly(e.start)+'</span></div>'+
       '<span class="cdmini'+((e.start-now)<D?' soon':'')+'"><i></i><span data-cd="'+e.id+'">'+mini(e.start)+'</span></span>'+
       '<div class="row"><span class="g">&#128249;</span>'+esc(e.venue)+(full?' &middot; <span class="soldout">Sold out</span>':'')+'</div>'+
@@ -442,7 +463,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<div class="meet-link"><span class="meet-ic">&#128205;</span><span class="meet-url" style="white-space:normal">'+esc(e.venue||"Venue to be announced")+(e.addr?' &middot; '+esc(e.addr):'')+'</span></div>'
     ):'';
     var joinHead=isPerson?"Where to find us":(isHybrid?"How to join":"Join on Google Meet");
-    var joinBlock=meetPart+venuePart+'<p class="meet-note">'+esc(joinNote)+'</p>';
+    var joinBlock=meetPart+venuePart+'<div class="meet-note rich">'+joinNote+'</div>';
     var rel=others.map(function(o){return cardHTML(o);}).join("");
     var platformLabel=isPerson?"Location":"Platform";
     var attendNote=(e.fee==="Free"?"Free to attend.":esc(e.fee)+".")+' '+(isPerson?'Venue details are under &ldquo;Where to find us&rdquo; above.':'The Google Meet link is posted on this page under &ldquo;How to join&rdquo;.');
@@ -457,11 +478,11 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<section class="cdband"><div class="lbl"><i></i> Starts in</div><div class="when" id="sWhen">'+fullDate(e)+'</div>'+clockHTML("sh",true)+'</section>'+
       tzbarHTML()+
       '<div class="layout"><div class="main">'+
-        '<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><p>'+esc(e.lead)+'</p>'+(ovx?'<p>'+esc(ovx)+'</p>':'')+'</div>'+
+        '<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+e.lead+'</div>'+(ovx?'<div class="rich">'+ovx+'</div>':'')+'</div>'+
         '<div class="sec"><span class="sec-eyebrow">How to join</span><h2>'+esc(joinHead)+'</h2>'+joinBlock+'</div>'+
         '<div class="sec"><span class="sec-eyebrow">What you\'ll learn</span><h2>What you\'ll cover</h2><ul class="checks">'+(e.covers||[]).map(function(c){return '<li><span class="ck">&#10003;</span> '+esc(c)+'</li>';}).join("")+'</ul></div>'+
         '<div class="sec"><span class="sec-eyebrow">Run of show</span><h2>Agenda</h2><div class="agenda">'+(e.agenda||[]).map(function(r){return '<div class="arow"><span class="at">'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';}).join("")+'</div></div>'+
-        '<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>Led by the AOSARS faculty</h2><div class="facil"><div class="facil-av">'+esc(initials(fName))+'</div><div class="facil-b"><div class="facil-n">'+esc(fName)+'</div><div class="facil-d">'+esc(fBio)+'</div></div></div></div>'+
+        '<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>Led by the AOSARS faculty</h2><div class="facil"><div class="facil-av">'+esc(initials(fName))+'</div><div class="facil-b"><div class="facil-n">'+esc(fName)+'</div><div class="facil-d rich">'+fBio+'</div></div></div></div>'+
       '</div>'+
       '<aside class="sticky">'+
         '<div class="panel"><h3>Event details</h3><div class="facts">'+
@@ -676,14 +697,14 @@ function aosev_fields() {
 		'capacity' => array( 'number', __( 'Capacity (blank = unlimited)', 'aosars-events' ) ),
 		'taken'    => array( 'number', __( 'Spots taken', 'aosars-events' ) ),
 		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
-		'summary'  => array( 'textarea', __( 'Card summary', 'aosars-events' ) ),
-		'lead'     => array( 'textarea', __( 'Lead paragraph', 'aosars-events' ) ),
+		'summary'  => array( 'textarea', __( 'Card summary (plain text)', 'aosars-events' ) ),
+		'lead'     => array( 'html', __( 'Lead paragraph (HTML allowed: bold, links, lists…)', 'aosars-events' ) ),
 		'covers'   => array( 'lines', __( "What you'll cover (one point per line)", 'aosars-events' ) ),
 		'agenda'   => array( 'lines', __( 'Agenda (one per line, e.g. 14:00 Welcome)', 'aosars-events' ) ),
-		'overview_extra' => array( 'textarea', __( 'Overview — extra paragraph (blank = site default)', 'aosars-events' ) ),
-		'join_note'      => array( 'textarea', __( 'How to join — note (blank = site default)', 'aosars-events' ) ),
+		'overview_extra' => array( 'html', __( 'Overview — extra content, HTML allowed (blank = site default)', 'aosars-events' ) ),
+		'join_note'      => array( 'html', __( 'How to join — note, HTML allowed (blank = site default)', 'aosars-events' ) ),
 		'facil_name'     => array( 'text', __( 'Facilitator name (blank = site default)', 'aosars-events' ) ),
-		'facil_bio'      => array( 'textarea', __( 'Facilitator bio (blank = site default)', 'aosars-events' ) ),
+		'facil_bio'      => array( 'html', __( 'Facilitator bio, HTML allowed (blank = site default)', 'aosars-events' ) ),
 	);
 }
 function aosev_box_html( $post ) {
@@ -696,6 +717,19 @@ function aosev_box_html( $post ) {
 			echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '"><option value="">' . esc_html__( 'Select', 'aosars-events' ) . '</option>';
 			foreach ( $def[2] as $o ) { echo '<option value="' . esc_attr( $o ) . '" ' . selected( $v, $o, false ) . '>' . esc_html( $o ) . '</option>'; }
 			echo '</select>';
+		} elseif ( 'html' === $t ) {
+			// Rich text: a compact visual editor whose output is filtered through wp_kses_post on save.
+			if ( function_exists( 'wp_editor' ) ) {
+				wp_editor( $v, 'aosev_' . $k, array(
+					'textarea_name' => 'aosev_' . $k,
+					'media_buttons' => false,
+					'teeny'         => true,
+					'textarea_rows' => 4,
+					'quicktags'     => true,
+				) );
+			} else {
+				echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
+			}
 		} elseif ( 'textarea' === $t || 'lines' === $t ) {
 			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 		} else {
@@ -714,6 +748,7 @@ function aosev_save( $post_id, $post ) {
 		if ( ! isset( $_POST[ $name ] ) ) { continue; }
 		$raw = wp_unslash( $_POST[ $name ] );
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
+		elseif ( 'html' === $def[0] ) { $val = wp_kses_post( $raw ); }
 		elseif ( 'textarea' === $def[0] || 'lines' === $def[0] ) { $val = sanitize_textarea_field( $raw ); }
 		elseif ( 'number' === $def[0] ) { $val = '' === $raw ? '' : absint( $raw ); }
 		else { $val = sanitize_text_field( $raw ); }
@@ -722,6 +757,13 @@ function aosev_save( $post_id, $post ) {
 }
 
 /* ---- 3. DATA BRIDGE: build the events array the app consumes ---- */
+/* Turn a stored rich field into display-ready, safe HTML. Re-filtering with
+   wp_kses_post is belt-and-braces; wpautop makes newlines into paragraphs. */
+function aosev_rich( $v ) {
+	$v = (string) $v;
+	if ( '' === $v ) { return ''; }
+	return wpautop( wp_kses_post( $v ) );
+}
 function aosev_lines( $s ) {
 	$out = array();
 	foreach ( preg_split( '/\r\n|\r|\n/', (string) $s ) as $l ) { $l = trim( $l ); if ( '' !== $l ) { $out[] = $l; } }
@@ -759,13 +801,13 @@ function aosev_json_events( $limit = 200 ) {
 			'fee' => $g( 'fee' ) ? $g( 'fee' ) : 'Free', 'img' => has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : '',
 			'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
 			'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
-			'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ),
+			'lead' => aosev_rich( $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ) ),
 			'addr' => $g( 'address' ), 'covers' => aosev_lines( $g( 'covers' ) ), 'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
 			'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
-			'overviewExtra' => $g( 'overview_extra' ) !== '' ? $g( 'overview_extra' ) : $set['overview_extra'],
-			'joinNote'      => $g( 'join_note' ) !== '' ? $g( 'join_note' ) : $set['join_note'],
+			'overviewExtra' => aosev_rich( $g( 'overview_extra' ) !== '' ? $g( 'overview_extra' ) : $set['overview_extra'] ),
+			'joinNote'      => aosev_rich( $g( 'join_note' ) !== '' ? $g( 'join_note' ) : $set['join_note'] ),
 			'facilName'     => $g( 'facil_name' ) !== '' ? $g( 'facil_name' ) : $set['facil_name'],
-			'facilBio'      => $g( 'facil_bio' ) !== '' ? $g( 'facil_bio' ) : $set['facil_bio'],
+			'facilBio'      => aosev_rich( $g( 'facil_bio' ) !== '' ? $g( 'facil_bio' ) : $set['facil_bio'] ),
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}
@@ -941,9 +983,9 @@ function aosev_settings_sanitize( $in ) {
 		'all_url'        => isset( $in['all_url'] ) ? esc_url_raw( $in['all_url'] ) : '',
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
 		'facil_name'     => isset( $in['facil_name'] ) ? sanitize_text_field( $in['facil_name'] ) : '',
-		'facil_bio'      => isset( $in['facil_bio'] ) ? sanitize_textarea_field( $in['facil_bio'] ) : '',
-		'join_note'      => isset( $in['join_note'] ) ? sanitize_textarea_field( $in['join_note'] ) : '',
-		'overview_extra' => isset( $in['overview_extra'] ) ? sanitize_textarea_field( $in['overview_extra'] ) : '',
+		'facil_bio'      => isset( $in['facil_bio'] ) ? wp_kses_post( $in['facil_bio'] ) : '',
+		'join_note'      => isset( $in['join_note'] ) ? wp_kses_post( $in['join_note'] ) : '',
+		'overview_extra' => isset( $in['overview_extra'] ) ? wp_kses_post( $in['overview_extra'] ) : '',
 	);
 }
 function aosev_settings_page() {
