@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.1.0
+ * Version:           5.2.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.1.0' );
+define( 'AOSEV_VER', '5.2.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -781,6 +781,7 @@ function aosev_settings() {
 		'auto_append'    => 1,
 		'hide_title'     => 0,
 		'full_single'    => 1,
+		'own_template'   => 1,
 	);
 	$s = get_option( AOSEV_OPTION, array() );
 	return wp_parse_args( is_array( $s ) ? $s : array(), $d );
@@ -1111,6 +1112,27 @@ function aosev_sc_home( $atts = array() ) { return aosev_home_mount(); }
 add_shortcode( 'aosars_events_home', 'aosev_sc_home' );
 
 /* ---- 6. SINGLE CPT PAGE + SCHEMA ---- */
+/* PRIMARY: take over the whole event page so ONLY our design renders — site header +
+   app + site footer. This bypasses the theme's own post title / featured image /
+   content, so nothing is displayed twice. Falls back to the the_content path (below)
+   when this is turned off, on block themes, or when Elementor is driving the layout. */
+add_action( 'template_redirect', aosev_guard( 'aosev_single_takeover' ) );
+function aosev_single_takeover() {
+	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! is_main_query() ) { return; }
+	if ( ( function_exists( 'is_embed' ) && is_embed() ) || is_feed() || post_password_required() ) { return; }
+	$s = aosev_settings();
+	if ( empty( $s['own_template'] ) ) { return; }
+	$id = (int) get_the_ID();
+	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return; } // Elementor drives it
+	if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) { return; }     // block theme: use the_content fallback
+	if ( ! function_exists( 'get_header' ) ) { return; }
+	$app = aosev_mount( array( 'view' => 'single', 'id' => $id ) );
+	if ( '' === $app ) { return; }
+	get_header();
+	echo '<div class="aosev-single-takeover">' . $app . '</div>'; // phpcs:ignore WordPress.Security.EscapeOutput -- app is our own generated markup.
+	get_footer();
+	exit;
+}
 add_filter( 'the_content', aosev_guard( 'aosev_append_single' ), 20 );
 function aosev_append_single( $content ) {
 	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! in_the_loop() || ! is_main_query() ) { return $content; }
@@ -1263,6 +1285,7 @@ function aosev_settings_sanitize( $in ) {
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
 		'hide_title'     => empty( $in['hide_title'] ) ? 0 : 1,
 		'full_single'    => empty( $in['full_single'] ) ? 0 : 1,
+		'own_template'   => empty( $in['own_template'] ) ? 0 : 1,
 	);
 }
 function aosev_settings_page() {
@@ -1275,6 +1298,7 @@ function aosev_settings_page() {
 	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS chrome (hero, countdown, facts, related) below single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Hide theme title on events', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[hide_title]" value="1" ' . checked( ! empty( $s['hide_title'] ), true, false ) . '> ' . esc_html__( "Hide the theme's own page title on single event pages, so it isn't shown twice (the branded hero already shows the title). Best-effort across common themes.", 'aosars-events' ) . '</label></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Full-width single pages', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[full_single]" value="1" ' . checked( ! empty( $s['full_single'] ), true, false ) . '> ' . esc_html__( 'Render single event pages edge-to-edge (like the prototype) instead of inside the theme\'s narrow content column. Turn off if your theme already provides a full-width template.', 'aosars-events' ) . '</label></td></tr>';
+	echo '<tr><th>' . esc_html__( 'Use the AOSARS single-event page', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[own_template]" value="1" ' . checked( ! empty( $s['own_template'] ), true, false ) . '> ' . esc_html__( 'Render the whole event page with the AOSARS design (site header + design + site footer) and bypass the theme\'s own title, featured image and content, so nothing is shown twice. Recommended. Turn off to keep the theme\'s single template.', 'aosars-events' ) . '</label></td></tr>';
 	echo '</tbody></table>';
 	submit_button();
 	echo '</form><h2>' . esc_html__( 'How to place events', 'aosars-events' ) . '</h2>';

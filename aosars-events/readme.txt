@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.1.0
+Stable tag: 5.2.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,9 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.2.0 =
+* Fixes the "everything shown twice" problem on event pages. The plugin now renders the whole single-event page itself (site header + AOSARS design + site footer) and bypasses the theme's own post title, featured image and content — so the title/image/content are no longer displayed by both the theme and the plugin. New "Use the AOSARS single-event page" setting (on by default); turn it off to keep the theme's own single template. Block themes and Elementor-built events automatically fall back to the previous behaviour.
 
 = 5.1.0 =
 * Single event permalinks now render edge-to-edge (like the prototype) instead of being squeezed into the theme's narrow content column — new "Full-width single pages" setting (on by default). The app's inner content still centres at 1180px. Pair with "Hide theme title on events" to avoid a duplicate title.
