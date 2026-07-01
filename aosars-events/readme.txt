@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 4.5.0
+Stable tag: 4.6.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,10 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 4.6.0 =
+* Portal cards (and the next-event / related links) now open the event's own permalink page, so a click lands on the full page you build in Elementor rather than the in-portal quick view.
+* New opt-in setting "Hide theme title on events": hides the theme's own single-event title so it isn't shown twice alongside the branded hero. Best-effort across common themes; the selector list is filterable via `aosev_hide_title_selectors`.
 
 = 4.5.0 =
 * Single-event pages are now a blank canvas, not a fixed template. The placeholder sections (Overview, How to join, What you'll cover, Agenda, Your facilitator) have been removed. You author the page body in the WordPress editor or Elementor, and it renders inside the branded shell (hero, live countdown, timezone bar, facts sidebar, related events).

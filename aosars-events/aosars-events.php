@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           4.5.0
+ * Version:           4.6.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '4.5.0' );
+define( 'AOSEV_VER', '4.6.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -515,7 +515,8 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   document.addEventListener("click",function(ev){
     var el=ev.target.closest("[data-act]"); if(!el||!el.closest(".aosev-app"))return;
     var a=el.dataset.act;
-    if(a==="view-event"){go("single",parseInt(el.dataset.id,10));}
+    if(a==="view-event"){var _id=parseInt(el.dataset.id,10),_e=byId[_id];
+      if(_e&&_e.permalink){ev.preventDefault();location.href=_e.permalink;}else{go("single",_id);}}
     else if(a==="all-events"){go("portal");}
     else if(a==="dismiss"){var t=el.closest(".ticker");if(t)t.style.display="none";}
     else if(a==="grid"){gridMode="grid";renderApp();}
@@ -566,6 +567,7 @@ function aosev_settings() {
 		'currency'       => 'KES',
 		'all_url'        => 'https://aosars.com/events/',
 		'auto_append'    => 1,
+		'hide_title'     => 0,
 	);
 	$s = get_option( AOSEV_OPTION, array() );
 	return wp_parse_args( is_array( $s ) ? $s : array(), $d );
@@ -900,6 +902,27 @@ function aosev_og() {
 	echo $out; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- values escaped above.
 }
 
+/* Optional helper: hide the theme's own single-event title so it isn't shown twice
+   (the branded hero already prints the title). Opt-in via Settings. Best-effort across
+   common themes; the selector list is filterable. */
+add_action( 'wp_head', aosev_guard( 'aosev_hide_title_css' ), 20 );
+function aosev_hide_title_css() {
+	if ( ! is_singular( 'aosars_event' ) ) { return; }
+	$s = aosev_settings();
+	if ( empty( $s['hide_title'] ) ) { return; }
+	$selectors = apply_filters( 'aosev_hide_title_selectors', array(
+		'.single-aosars_event .entry-title',
+		'.single-aosars_event .entry-header .entry-title',
+		'.single-aosars_event header.entry-header > .entry-title',
+		'.single-aosars_event .page-title',
+		'.single-aosars_event h1.wp-block-post-title',
+		'.single-aosars_event .elementor-heading-title.entry-title',
+	) );
+	$selectors = array_filter( array_map( 'sanitize_text_field', (array) $selectors ) );
+	if ( empty( $selectors ) ) { return; }
+	echo "\n<style id=\"aosev-hide-title\">" . implode( ',', $selectors ) . '{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}</style>' . "\n";
+}
+
 /* ---- 7. ELEMENTOR (optional; loaded only when active) ---- */
 add_action( 'elementor/elements/categories_registered', aosev_guard( 'aosev_el_cat' ) );
 function aosev_el_cat( $mgr ) { if ( is_object( $mgr ) && method_exists( $mgr, 'add_category' ) ) { $mgr->add_category( 'aosars', array( 'title' => __( 'AOSARS', 'aosars-events' ), 'icon' => 'eicon-calendar' ) ); } }
@@ -950,6 +973,7 @@ function aosev_settings_sanitize( $in ) {
 		'currency'       => isset( $in['currency'] ) ? sanitize_text_field( $in['currency'] ) : 'KES',
 		'all_url'        => isset( $in['all_url'] ) ? esc_url_raw( $in['all_url'] ) : '',
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
+		'hide_title'     => empty( $in['hide_title'] ) ? 0 : 1,
 	);
 }
 function aosev_settings_page() {
@@ -960,6 +984,7 @@ function aosev_settings_page() {
 	echo '<tr><th>' . esc_html__( 'Default currency', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[currency]" value="' . esc_attr( $s['currency'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'View all events URL', 'aosars-events' ) . '</th><td><input type="url" name="' . esc_attr( AOSEV_OPTION ) . '[all_url]" value="' . esc_attr( $s['all_url'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS chrome (hero, countdown, facts, related) below single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
+	echo '<tr><th>' . esc_html__( 'Hide theme title on events', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[hide_title]" value="1" ' . checked( ! empty( $s['hide_title'] ), true, false ) . '> ' . esc_html__( "Hide the theme's own page title on single event pages, so it isn't shown twice (the branded hero already shows the title). Best-effort across common themes.", 'aosars-events' ) . '</label></td></tr>';
 	echo '</tbody></table>';
 	submit_button();
 	echo '</form><h2>' . esc_html__( 'How to place events', 'aosars-events' ) . '</h2>';
