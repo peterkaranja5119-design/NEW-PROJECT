@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 4.4.0
+Stable tag: 4.5.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,12 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 4.5.0 =
+* Single-event pages are now a blank canvas, not a fixed template. The placeholder sections (Overview, How to join, What you'll cover, Agenda, Your facilitator) have been removed. You author the page body in the WordPress editor or Elementor, and it renders inside the branded shell (hero, live countdown, timezone bar, facts sidebar, related events).
+* Your authored HTML now renders on the portal single view too (not just the permalink): the event's content is passed through and shown in the main column.
+* The Google Meet link and "Join the meeting" button appear only when a meeting code is set; no placeholder link is shown otherwise.
+* Removed the now-unused per-event section fields and their site-wide defaults; the Event details box is trimmed to scheduling/venue/fee plus a short card blurb.
 
 = 4.4.0 =
 * The last two fixed lines on the single-event page are now editable: the facilitator heading ("Led by the AOSARS faculty") and the how-to-join intro sentence, each a per-event field with a site-wide default under Events > Settings.

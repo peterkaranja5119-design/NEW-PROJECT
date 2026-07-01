@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           4.4.0
+ * Version:           4.5.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '4.4.0' );
+define( 'AOSEV_VER', '4.5.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -297,6 +297,15 @@ define( 'AOSEV_CSS', <<<'AOSEV_CSS_END'
 .aosev-app .facil-d.rich{font-size:14px;}
 .aosev-app .meet-note.rich{font-size:12.5px;color:var(--ink-soft);}
 .aosev-app .meet-note.rich p{margin:0 0 6px;}
+.aosev-app /* author-written single-page body + chrome-only fallback */
+  .layout.nobody{grid-template-columns:1fr;}
+.aosev-app .layout.nobody .sticky{position:static;}
+.aosev-app .sbody{font-size:16px;color:var(--ink);}
+.aosev-app .sbody>*:first-child{margin-top:0;}
+.aosev-app .sbody img{max-width:100%;height:auto;border-radius:12px;}
+.aosev-app .sbody iframe,.aosev-app .sbody video{max-width:100%;}
+.aosev-app .sbody h2{font-size:clamp(20px,2vw,26px);color:var(--indigo);font-weight:800;margin:22px 0 10px;}
+.aosev-app .sbody h3{font-size:18px;color:var(--indigo);font-weight:800;margin:18px 0 8px;}
 AOSEV_CSS_END
 );
 define( 'AOSEV_JS', <<<'AOSEV_JS_END'
@@ -314,7 +323,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   var WD=["Mo","Tu","We","Th","Fr","Sa","Su"];
 
   var tz="Africa/Nairobi", tzLabel="EAT", gridMode="grid";
-  var state=(window.AOSEV_DATA&&window.AOSEV_DATA.state&&window.AOSEV_DATA.state.view==="single")?{view:"single",id:window.AOSEV_DATA.state.id}:{view:"portal",id:null};
+  var state=(window.AOSEV_DATA&&window.AOSEV_DATA.state&&window.AOSEV_DATA.state.view==="single")?{view:"single",id:window.AOSEV_DATA.state.id,append:!!window.AOSEV_DATA.state.append}:{view:"portal",id:null};
   var _t=new Date(), calY=_t.getFullYear(), calM=_t.getMonth(), calMode="month", selDay=null, selCat=null;
 
   function pad(n){return (n<10?"0":"")+n;}
@@ -325,16 +334,6 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     .replace(/<br\s*\/?>/gi," ")
     .replace(/<[^>]*>/g,"")
     .replace(/\s+/g," ").trim();}
-  function initials(s){var w=String(s||"").trim().split(/\s+/).filter(Boolean);
-    if(!w.length)return "AOSARS";
-    var out=(w[0][0]||"")+(w.length>1?(w[w.length-1][0]||""):"");
-    return out.toUpperCase()||"AOSARS";}
-  var DEF={facilName:"AOSARS Research Faculty",
-    facilBio:"Sessions are led by experienced AOSARS researcher-trainers who have guided postgraduate scholars across seven African countries. You leave with practical guidance you can apply to your own work the same week.",
-    joinNote:"The room opens 10 minutes before the start time. Add the event to your calendar so the link is always to hand.",
-    overviewExtra:"You will leave with templates and a recording, and a clear next step you can act on the same week.",
-    facilHead:"Led by the AOSARS faculty",
-    joinIntro:"This session runs live online on Google Meet. The joining link is posted right here, so you can save it now."};
   function timeOnly(ms){return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz})+" "+tzLabel;}
   function dateBadge(ms){var d=new Date(ms),td=new Date(now);
     var ds=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz});
@@ -448,55 +447,43 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   function singleHTML(id){
     var e=byId[id];
     if(!e){return '<div class="empty-state">This event could not be found. <b data-act="all-events" style="color:var(--indigo);cursor:pointer">Back to all events</b></div>';}
-    var full=e.cap&&e.taken>=e.cap;
     var others=soonest().filter(function(x){return x.id!==id;}).slice(0,3);
-    var meet=MEETS[e.id]||"aos-meet-room";
+    var meet=MEETS[e.id]||"";
     var mode=e.mode||"Online";
     var isPerson=(mode==="In-person"), isHybrid=(mode==="Hybrid"), isOnline=!isPerson&&!isHybrid;
-    var joinNote=e.joinNote||DEF.joinNote, ovx=e.overviewExtra||DEF.overviewExtra;
-    var fName=e.facilName||DEF.facilName, fBio=e.facilBio||DEF.facilBio;
-    var fHead=e.facilHead||DEF.facilHead, joinIntro=e.joinIntro||DEF.joinIntro;
-    var meetPart=(isOnline||isHybrid)?(
-      '<p class="meet-sub">'+esc(joinIntro)+'</p>'+
-      '<div class="meet-link"><span class="meet-ic">&#128249;</span><span class="meet-url">meet.google.com/'+esc(meet)+'</span><button class="meet-copy" data-act="copy-meet" data-link="https://meet.google.com/'+esc(meet)+'">Copy link</button></div>'+
-      '<div class="meet-actions"><a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a></div>'
-    ):'';
-    var venuePart=(isPerson||isHybrid)?(
-      '<p class="meet-sub">'+(isHybrid?'You can also attend in person at the venue below.':'This session takes place in person at the venue below.')+'</p>'+
-      '<div class="meet-link"><span class="meet-ic">&#128205;</span><span class="meet-url" style="white-space:normal">'+esc(e.venue||"Venue to be announced")+(e.addr?' &middot; '+esc(e.addr):'')+'</span></div>'
-    ):'';
-    var joinHead=isPerson?"Where to find us":(isHybrid?"How to join":"Join on Google Meet");
-    var joinBlock=meetPart+venuePart+'<div class="meet-note rich">'+joinNote+'</div>';
+    var hasMeet=!!meet&&(isOnline||isHybrid);
     var rel=others.map(function(o){return cardHTML(o);}).join("");
     var platformLabel=isPerson?"Location":"Platform";
-    var attendNote=(e.fee==="Free"?"Free to attend.":esc(e.fee)+".")+' '+(isPerson?'Venue details are under &ldquo;Where to find us&rdquo; above.':'The Google Meet link is posted on this page under &ldquo;How to join&rdquo;.');
-    return ''+
+    // No placeholder sections: the body is whatever the author writes (post content
+    // or, on the permalink, their Elementor/editor layout). Suppressed in append
+    // mode because the theme already prints the content above the chrome.
+    var appendMode=!!(state&&state.append);
+    var bodyHTML=(!appendMode&&e.body)?'<div class="rich sbody">'+e.body+'</div>':'';
+    var joinBtn=hasMeet?'<a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a>':'';
+    var facts='<div class="panel"><h3>Event details</h3><div class="facts">'+
+      '<div class="fact"><span class="fi">&#128197;</span><div><div class="fk">Date &amp; time</div><div class="fv" id="sFacts">'+fullDate(e)+'</div></div></div>'+
+      '<div class="fact"><span class="fi">&#128421;</span><div><div class="fk">Format</div><div class="fv">'+esc(e.mode)+'</div></div></div>'+
+      '<div class="fact"><span class="fi">&#128249;</span><div><div class="fk">'+platformLabel+'</div><div class="fv">'+esc(e.venue)+(e.addr&&isPerson?'<br><span style="font-weight:400">'+esc(e.addr)+'</span>':'')+'</div></div></div>'+
+      (hasMeet?'<div class="fact"><span class="fi">&#128279;</span><div><div class="fk">Join link</div><div class="fv"><a href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">meet.google.com/'+esc(meet)+'</a></div></div></div>':'')+
+      '<div class="fact"><span class="fi">&#127891;</span><div><div class="fk">Organiser</div><div class="fv">AOSARS</div></div></div>'+
+      '<div class="fact"><span class="fi">&#128176;</span><div><div class="fk">Fee</div><div class="fv">'+esc(e.fee)+'</div></div></div></div>'+
+      '<div class="calbtns">'+joinBtn+'<a class="btn'+(hasMeet?'':' primary')+'" data-act="ics" data-id="'+e.id+'">&#11015; Add to calendar (.ics)</a><a class="btn" id="gcal" target="_blank" rel="noopener">&#128197; Google Calendar</a></div></div>';
+    var relBlock='<div class="moreevents"><div class="moreevents-h">More events <a data-act="all-events">View all &#8594;</a></div>'+rel+'</div>';
+    var chromeTop=''+
       '<div class="topline"><button class="back" data-act="all-events">&#8592; All events</button><div class="crumb"><a data-act="all-events">Events</a> &nbsp;&rsaquo;&nbsp; <b>'+esc(e.t)+'</b></div></div>'+
       '<header class="shead"><div class="ab-post-meta-block"><span class="ab-eyebrow">'+esc(e.cat)+'</span>'+
       '<div class="ab-post-meta"><span>'+esc(e.mode)+'</span><span class="ab-dot"></span>'+
       '<span>'+new Date(e.start).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:tz})+'</span><span class="ab-dot"></span>'+
       '<span>'+e.durH+' hour'+(e.durH>1?'s':'')+'</span></div></div>'+
       '<h1 tabindex="-1" id="focusH">'+esc(e.t)+'</h1></header>'+
-      '<div class="bframe"><img class="bphoto" src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>'+
+      (e.img?'<div class="bframe"><img class="bphoto" src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>':'')+
       '<section class="cdband"><div class="lbl"><i></i> Starts in</div><div class="when" id="sWhen">'+fullDate(e)+'</div>'+clockHTML("sh",true)+'</section>'+
-      tzbarHTML()+
-      '<div class="layout"><div class="main">'+
-        '<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+e.lead+'</div>'+(ovx?'<div class="rich">'+ovx+'</div>':'')+'</div>'+
-        '<div class="sec"><span class="sec-eyebrow">How to join</span><h2>'+esc(joinHead)+'</h2>'+joinBlock+'</div>'+
-        '<div class="sec"><span class="sec-eyebrow">What you\'ll learn</span><h2>What you\'ll cover</h2><ul class="checks">'+(e.covers||[]).map(function(c){return '<li><span class="ck">&#10003;</span> <span class="rich">'+c+'</span></li>';}).join("")+'</ul></div>'+
-        '<div class="sec"><span class="sec-eyebrow">Run of show</span><h2>Agenda</h2><div class="agenda">'+(e.agenda||[]).map(function(r){return '<div class="arow"><span class="at">'+esc(r[0])+'</span><span class="rich">'+r[1]+'</span></div>';}).join("")+'</div></div>'+
-        '<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>'+esc(fHead)+'</h2><div class="facil"><div class="facil-av">'+esc(initials(fName))+'</div><div class="facil-b"><div class="facil-n">'+esc(fName)+'</div><div class="facil-d rich">'+fBio+'</div></div></div></div>'+
-      '</div>'+
-      '<aside class="sticky">'+
-        '<div class="panel"><h3>Event details</h3><div class="facts">'+
-          '<div class="fact"><span class="fi">&#128197;</span><div><div class="fk">Date &amp; time</div><div class="fv" id="sFacts">'+fullDate(e)+'</div></div></div>'+
-          '<div class="fact"><span class="fi">&#128421;</span><div><div class="fk">Format</div><div class="fv">'+esc(e.mode)+'</div></div></div>'+
-          '<div class="fact"><span class="fi">&#128249;</span><div><div class="fk">'+platformLabel+'</div><div class="fv">'+esc(e.venue)+'</div></div></div>'+
-          '<div class="fact"><span class="fi">&#127891;</span><div><div class="fk">Organiser</div><div class="fv">AOSARS</div></div></div>'+
-          '<div class="fact"><span class="fi">&#128176;</span><div><div class="fk">Fee</div><div class="fv">'+esc(e.fee)+'</div></div></div></div>'+
-        '<div class="calbtns"><a class="btn primary" data-act="ics" data-id="'+e.id+'">&#11015; Add to calendar (.ics)</a><a class="btn" id="gcal" target="_blank" rel="noopener">&#128197; Google Calendar</a></div>'+
-        '<p class="attend-note">'+attendNote+'</p></div>'+
-        '<div class="moreevents"><div class="moreevents-h">More events <a data-act="all-events">View all &#8594;</a></div>'+rel+'</div></aside></div>';
+      tzbarHTML();
+    // With a body: two columns (body + sticky facts). Without: single column, facts then related.
+    var layout=bodyHTML
+      ? '<div class="layout"><div class="main">'+bodyHTML+'</div><aside class="sticky">'+facts+relBlock+'</aside></div>'
+      : '<div class="layout nobody"><div class="main">'+facts+'</div><aside class="sticky">'+relBlock+'</aside></div>';
+    return chromeTop+layout;
   }
 
   /* ---------- router + ticking ---------- */
@@ -579,14 +566,6 @@ function aosev_settings() {
 		'currency'       => 'KES',
 		'all_url'        => 'https://aosars.com/events/',
 		'auto_append'    => 1,
-		// Site-wide defaults for the single-event prose. Any event may override these
-		// with its own "Event details" fields; blank event fields fall back to here.
-		'facil_head'     => 'Led by the AOSARS faculty',
-		'facil_name'     => 'AOSARS Research Faculty',
-		'facil_bio'      => 'Sessions are led by experienced AOSARS researcher-trainers who have guided postgraduate scholars across seven African countries. You leave with practical guidance you can apply to your own work the same week.',
-		'join_intro'     => 'This session runs live online on Google Meet. The joining link is posted right here, so you can save it now.',
-		'join_note'      => 'The room opens 10 minutes before the start time. Add the event to your calendar so the link is always to hand.',
-		'overview_extra' => 'You will leave with templates and a recording, and a clear next step you can act on the same week.',
 	);
 	$s = get_option( AOSEV_OPTION, array() );
 	return wp_parse_args( is_array( $s ) ? $s : array(), $d );
@@ -702,17 +681,11 @@ function aosev_fields() {
 		'capacity' => array( 'number', __( 'Capacity (blank = unlimited)', 'aosars-events' ) ),
 		'taken'    => array( 'number', __( 'Spots taken', 'aosars-events' ) ),
 		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
-		'summary'  => array( 'textarea', __( 'Card summary (plain text)', 'aosars-events' ) ),
-		'lead'     => array( 'html', __( 'Lead paragraph (HTML allowed: bold, links, lists…)', 'aosars-events' ) ),
-		'covers'   => array( 'lines', __( "What you'll cover (one point per line; inline HTML allowed)", 'aosars-events' ) ),
-		'agenda'   => array( 'lines', __( 'Agenda (one per line, e.g. 14:00 Welcome; inline HTML allowed)', 'aosars-events' ) ),
-		'overview_extra' => array( 'html', __( 'Overview — extra content, HTML allowed (blank = site default)', 'aosars-events' ) ),
-		'join_intro'     => array( 'textarea', __( 'How to join — intro sentence (blank = site default)', 'aosars-events' ) ),
-		'join_note'      => array( 'html', __( 'How to join — note, HTML allowed (blank = site default)', 'aosars-events' ) ),
-		'facil_head'     => array( 'text', __( 'Facilitator heading (blank = site default)', 'aosars-events' ) ),
-		'facil_name'     => array( 'text', __( 'Facilitator name (blank = site default)', 'aosars-events' ) ),
-		'facil_bio'      => array( 'html', __( 'Facilitator bio, HTML allowed (blank = site default)', 'aosars-events' ) ),
+		'summary'  => array( 'textarea', __( 'Card blurb (short text shown on the events grid)', 'aosars-events' ) ),
+		'lead'     => array( 'textarea', __( 'Card blurb override (optional; falls back to the summary/excerpt)', 'aosars-events' ) ),
 	);
+	// The single-event page body is authored in the WordPress editor / Elementor,
+	// so no per-event section fields are needed here.
 }
 function aosev_box_html( $post ) {
 	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
@@ -765,29 +738,17 @@ function aosev_save( $post_id, $post ) {
 }
 
 /* ---- 3. DATA BRIDGE: build the events array the app consumes ---- */
-/* Turn a stored rich field into display-ready, safe HTML. Re-filtering with
-   wp_kses_post is belt-and-braces; wpautop makes newlines into paragraphs. */
-function aosev_rich( $v ) {
-	$v = (string) $v;
-	if ( '' === $v ) { return ''; }
-	return wpautop( wp_kses_post( $v ) );
-}
-function aosev_lines( $s ) {
-	$out = array();
-	foreach ( preg_split( '/\r\n|\r|\n/', (string) $s ) as $l ) { $l = trim( $l ); if ( '' !== $l ) { $out[] = $l; } }
-	return $out;
-}
-function aosev_agenda_rows( $s ) {
-	$rows = array();
-	foreach ( aosev_lines( $s ) as $l ) {
-		if ( preg_match( '/^(\d{1,2}:\d{2})\s+(.*)$/', $l, $m ) ) { $rows[] = array( $m[1], $m[2] ); }
-		else { $rows[] = array( '', $l ); }
-	}
-	return $rows;
+/* Render the event's own authored content (editor / blocks / shortcodes) as the
+   single-page body. Deliberately NOT the_content, to avoid re-entrancy with our
+   own the_content filter while an event is being queried. */
+function aosev_body_html( $post ) {
+	$c = isset( $post->post_content ) ? trim( (string) $post->post_content ) : '';
+	if ( '' === $c ) { return ''; }
+	if ( function_exists( 'do_blocks' ) ) { $c = do_blocks( $c ); }
+	return do_shortcode( wpautop( $c ) );
 }
 function aosev_json_events( $limit = 200 ) {
 	$rows = array(); $meets = array();
-	$set  = aosev_settings();
 	$q = new WP_Query( array(
 		'post_type' => 'aosars_event', 'post_status' => 'publish', 'posts_per_page' => $limit,
 		'orderby' => 'meta_value', 'meta_key' => '_aosev_start', 'order' => 'ASC', 'no_found_rows' => true,
@@ -809,15 +770,10 @@ function aosev_json_events( $limit = 200 ) {
 			'fee' => $g( 'fee' ) ? $g( 'fee' ) : 'Free', 'img' => has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : '',
 			'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
 			'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
-			'lead' => aosev_rich( $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ) ),
-			'addr' => $g( 'address' ), 'covers' => aosev_lines( $g( 'covers' ) ), 'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
+			'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ),
+			'addr' => $g( 'address' ),
 			'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
-			'overviewExtra' => aosev_rich( $g( 'overview_extra' ) !== '' ? $g( 'overview_extra' ) : $set['overview_extra'] ),
-			'joinIntro'     => $g( 'join_intro' ) !== '' ? $g( 'join_intro' ) : $set['join_intro'],
-			'joinNote'      => aosev_rich( $g( 'join_note' ) !== '' ? $g( 'join_note' ) : $set['join_note'] ),
-			'facilHead'     => $g( 'facil_head' ) !== '' ? $g( 'facil_head' ) : $set['facil_head'],
-			'facilName'     => $g( 'facil_name' ) !== '' ? $g( 'facil_name' ) : $set['facil_name'],
-			'facilBio'      => aosev_rich( $g( 'facil_bio' ) !== '' ? $g( 'facil_bio' ) : $set['facil_bio'] ),
+			'body' => aosev_body_html( $p ),
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}
@@ -895,7 +851,9 @@ function aosev_append_single( $content ) {
 	// Behave like a post: if the event page is designed in Elementor, respect that
 	// layout and do not append the default view (add the Single Event widget instead).
 	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return $content; }
-	return $content . aosev_mount( array( 'view' => 'single', 'id' => $id ) );
+	// Append only the branded chrome (hero, countdown, facts, related). The theme
+	// already prints the author's content above, so the app suppresses its body.
+	return $content . aosev_mount( array( 'view' => 'single', 'id' => $id, 'append' => 1 ) );
 }
 add_action( 'wp_head', aosev_guard( 'aosev_schema' ) );
 function aosev_schema() {
@@ -992,12 +950,6 @@ function aosev_settings_sanitize( $in ) {
 		'currency'       => isset( $in['currency'] ) ? sanitize_text_field( $in['currency'] ) : 'KES',
 		'all_url'        => isset( $in['all_url'] ) ? esc_url_raw( $in['all_url'] ) : '',
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
-		'facil_head'     => isset( $in['facil_head'] ) ? sanitize_text_field( $in['facil_head'] ) : '',
-		'facil_name'     => isset( $in['facil_name'] ) ? sanitize_text_field( $in['facil_name'] ) : '',
-		'facil_bio'      => isset( $in['facil_bio'] ) ? wp_kses_post( $in['facil_bio'] ) : '',
-		'join_intro'     => isset( $in['join_intro'] ) ? sanitize_textarea_field( $in['join_intro'] ) : '',
-		'join_note'      => isset( $in['join_note'] ) ? wp_kses_post( $in['join_note'] ) : '',
-		'overview_extra' => isset( $in['overview_extra'] ) ? wp_kses_post( $in['overview_extra'] ) : '',
 	);
 }
 function aosev_settings_page() {
@@ -1007,14 +959,7 @@ function aosev_settings_page() {
 	echo '<table class="form-table"><tbody>';
 	echo '<tr><th>' . esc_html__( 'Default currency', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[currency]" value="' . esc_attr( $s['currency'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'View all events URL', 'aosars-events' ) . '</th><td><input type="url" name="' . esc_attr( AOSEV_OPTION ) . '[all_url]" value="' . esc_attr( $s['all_url'] ) . '" class="regular-text"></td></tr>';
-	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS layout on single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
-	echo '<tr><th colspan="2"><h2 style="margin:6px 0">' . esc_html__( 'Single-event defaults', 'aosars-events' ) . '</h2><p class="description" style="font-weight:400">' . esc_html__( 'Used on every event unless the event overrides them in its own Event details fields.', 'aosars-events' ) . '</p></th></tr>';
-	echo '<tr><th>' . esc_html__( 'Facilitator heading', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[facil_head]" value="' . esc_attr( $s['facil_head'] ) . '" class="regular-text"></td></tr>';
-	echo '<tr><th>' . esc_html__( 'Facilitator name', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[facil_name]" value="' . esc_attr( $s['facil_name'] ) . '" class="regular-text"></td></tr>';
-	echo '<tr><th>' . esc_html__( 'Facilitator bio', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[facil_bio]" rows="3" class="large-text">' . esc_textarea( $s['facil_bio'] ) . '</textarea></td></tr>';
-	echo '<tr><th>' . esc_html__( 'How-to-join intro sentence', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[join_intro]" rows="2" class="large-text">' . esc_textarea( $s['join_intro'] ) . '</textarea></td></tr>';
-	echo '<tr><th>' . esc_html__( 'How-to-join note', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[join_note]" rows="2" class="large-text">' . esc_textarea( $s['join_note'] ) . '</textarea></td></tr>';
-	echo '<tr><th>' . esc_html__( 'Overview extra paragraph', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[overview_extra]" rows="2" class="large-text">' . esc_textarea( $s['overview_extra'] ) . '</textarea></td></tr>';
+	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS chrome (hero, countdown, facts, related) below single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
 	echo '</tbody></table>';
 	submit_button();
 	echo '</form><h2>' . esc_html__( 'How to place events', 'aosars-events' ) . '</h2>';
