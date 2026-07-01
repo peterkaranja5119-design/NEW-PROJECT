@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.3.0
+ * Version:           5.4.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.3.0' );
+define( 'AOSEV_VER', '5.4.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -306,6 +306,10 @@ define( 'AOSEV_CSS', <<<'AOSEV_CSS_END'
 .aosev-app .sbody iframe,.aosev-app .sbody video{max-width:100%;}
 .aosev-app .sbody h2{font-size:clamp(20px,2vw,26px);color:var(--indigo);font-weight:800;margin:22px 0 10px;}
 .aosev-app .sbody h3{font-size:18px;color:var(--indigo);font-weight:800;margin:18px 0 8px;}
+.aosev-app /* raw custom-HTML block: let the author's own markup control its look */
+  .aosev-chtml{margin:0 0 18px;}
+.aosev-app .aosev-chtml img{max-width:100%;height:auto;}
+.aosev-app .aosev-chtml iframe{max-width:100%;}
 AOSEV_CSS_END
 );
 define( 'AOSEV_JS', <<<'AOSEV_JS_END'
@@ -460,6 +464,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
 
     /* ----- main-column sections; each is OMITTED when the event has no data for it ----- */
     var secs="";
+    if(e.customHtml){ secs+='<div class="aosev-chtml">'+e.customHtml+'</div>'; }
     var about=(e.leadH||"")+(e.body||"");
     if(!about&&e.lead){ about='<p>'+esc(e.lead)+'</p>'; }
     if(about){ secs+='<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+about+'</div></div>'; }
@@ -903,6 +908,7 @@ function aosev_fields() {
 		'agenda'   => array( 'lines', __( 'Agenda — one per line, e.g. 14:00 Welcome (blank hides the section)', 'aosars-events' ) ),
 		'facil_name' => array( 'text', __( 'Facilitator name (blank hides the facilitator section)', 'aosars-events' ) ),
 		'facil_bio'  => array( 'html', __( 'Facilitator bio (HTML allowed; blank hides the facilitator section)', 'aosars-events' ) ),
+		'custom_html' => array( 'code', __( 'Custom HTML — paste raw HTML here and it renders as-is at the top of the event body (blank to skip)', 'aosars-events' ) ),
 		'use_builder' => array( 'checkbox', __( 'Design THIS event page in Elementor / the theme instead of the AOSARS layout', 'aosars-events' ) ),
 	);
 	// Anything richer than these fields is authored in the WordPress editor / Elementor
@@ -935,6 +941,8 @@ function aosev_box_html( $post ) {
 			} else {
 				echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 			}
+		} elseif ( 'code' === $t ) {
+			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" rows="8" spellcheck="false" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:170px;white-space:pre">' . esc_textarea( $v ) . '</textarea>';
 		} elseif ( 'textarea' === $t || 'lines' === $t ) {
 			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 		} else {
@@ -954,6 +962,7 @@ function aosev_save( $post_id, $post ) {
 		if ( ! isset( $_POST[ $name ] ) ) { continue; }
 		$raw = wp_unslash( $_POST[ $name ] );
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
+		elseif ( 'code' === $def[0] ) { $val = current_user_can( 'unfiltered_html' ) ? $raw : wp_kses_post( $raw ); } // raw HTML for capable users, like the Custom HTML block
 		elseif ( 'html' === $def[0] ) { $val = wp_kses_post( $raw ); }
 		elseif ( 'lines' === $def[0] ) { $val = wp_kses_post( $raw ); } // one item per line; inline HTML allowed
 		elseif ( 'textarea' === $def[0] ) { $val = sanitize_textarea_field( $raw ); }
@@ -1030,6 +1039,7 @@ function aosev_json_events( $limit = 200 ) {
 			'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
 			'facilName' => $g( 'facil_name' ),
 			'facilBio'  => aosev_rich( $g( 'facil_bio' ) ),
+			'customHtml' => (string) $g( 'custom_html' ),
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}

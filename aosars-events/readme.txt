@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.3.0
+Stable tag: 5.4.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,9 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.4.0 =
+* New per-event "Custom HTML" field: paste raw HTML in the Event details box and it renders as-is at the top of the event body, inside the AOSARS design. Stored like WordPress's own Custom HTML block — kept verbatim for users who can post unfiltered HTML (admins), otherwise filtered with wp_kses_post.
 
 = 5.3.0 =
 * Fixes inconsistent single pages: newly-created events rendered the theme's plain page while older ones showed the AOSARS design. Cause — the plugin auto-skipped any event that had ever been opened in Elementor (its `_elementor_edit_mode` was "builder"). Now EVERY event uses the AOSARS design by default; a page only uses Elementor/the theme when you explicitly tick the new per-event "Design THIS event page in Elementor / the theme instead" box.
