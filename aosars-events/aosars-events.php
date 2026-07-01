@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.0.0
+ * Version:           5.1.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.0.0' );
+define( 'AOSEV_VER', '5.1.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -780,6 +780,7 @@ function aosev_settings() {
 		'all_url'        => 'https://aosars.com/events/',
 		'auto_append'    => 1,
 		'hide_title'     => 0,
+		'full_single'    => 1,
 	);
 	$s = get_option( AOSEV_OPTION, array() );
 	return wp_parse_args( is_array( $s ) ? $s : array(), $d );
@@ -1190,6 +1191,20 @@ function aosev_hide_title_css() {
 	if ( empty( $selectors ) ) { return; }
 	echo "\n<style id=\"aosev-hide-title\">" . implode( ',', $selectors ) . '{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;}</style>' . "\n";
 }
+/* Make the single-event design render EDGE-TO-EDGE (like the prototype) instead of being
+   squeezed into the theme's narrow content column. Opt-out via Settings. The app's inner
+   .wrap still centres content at 1180px, so this just removes the theme's width cage. */
+add_action( 'wp_head', aosev_guard( 'aosev_full_single_css' ), 21 );
+function aosev_full_single_css() {
+	if ( ! is_singular( 'aosars_event' ) ) { return; }
+	$s = aosev_settings();
+	if ( empty( $s['full_single'] ) ) { return; }
+	echo "\n<style id=\"aosev-full-single\">"
+		. '.single-aosars_event .aosev-app{width:100vw;max-width:100vw;margin-left:calc(50% - 50vw);margin-right:calc(50% - 50vw);border-radius:0;}'
+		. '.single-aosars_event .aosev-app .wrap{max-width:1180px;margin:0 auto;}'
+		. '@media(max-width:1180px){.single-aosars_event .aosev-app .wrap{padding-left:20px;padding-right:20px;}}'
+		. '</style>' . "\n";
+}
 
 /* ---- 7. ELEMENTOR (optional; loaded only when active) ---- */
 add_action( 'elementor/elements/categories_registered', aosev_guard( 'aosev_el_cat' ) );
@@ -1247,6 +1262,7 @@ function aosev_settings_sanitize( $in ) {
 		'all_url'        => isset( $in['all_url'] ) ? esc_url_raw( $in['all_url'] ) : '',
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
 		'hide_title'     => empty( $in['hide_title'] ) ? 0 : 1,
+		'full_single'    => empty( $in['full_single'] ) ? 0 : 1,
 	);
 }
 function aosev_settings_page() {
@@ -1258,6 +1274,7 @@ function aosev_settings_page() {
 	echo '<tr><th>' . esc_html__( 'View all events URL', 'aosars-events' ) . '</th><td><input type="url" name="' . esc_attr( AOSEV_OPTION ) . '[all_url]" value="' . esc_attr( $s['all_url'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS chrome (hero, countdown, facts, related) below single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Hide theme title on events', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[hide_title]" value="1" ' . checked( ! empty( $s['hide_title'] ), true, false ) . '> ' . esc_html__( "Hide the theme's own page title on single event pages, so it isn't shown twice (the branded hero already shows the title). Best-effort across common themes.", 'aosars-events' ) . '</label></td></tr>';
+	echo '<tr><th>' . esc_html__( 'Full-width single pages', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[full_single]" value="1" ' . checked( ! empty( $s['full_single'] ), true, false ) . '> ' . esc_html__( 'Render single event pages edge-to-edge (like the prototype) instead of inside the theme\'s narrow content column. Turn off if your theme already provides a full-width template.', 'aosars-events' ) . '</label></td></tr>';
 	echo '</tbody></table>';
 	submit_button();
 	echo '</form><h2>' . esc_html__( 'How to place events', 'aosars-events' ) . '</h2>';

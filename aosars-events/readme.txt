@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.0.0
+Stable tag: 5.1.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,9 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.1.0 =
+* Single event permalinks now render edge-to-edge (like the prototype) instead of being squeezed into the theme's narrow content column — new "Full-width single pages" setting (on by default). The app's inner content still centres at 1180px. Pair with "Hide theme title on events" to avoid a duplicate title.
 
 = 5.0.0 =
 * Single-event pages restored to the full branded prototype design: framed hero, live countdown, timezone bar, the styled sections (About, How to join, What you'll cover, Agenda, Facilitator), sticky facts sidebar and related events — driven by each event's data.
