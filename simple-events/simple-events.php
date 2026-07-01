@@ -32,6 +32,8 @@ require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-meta.php';
 require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-query.php';
 require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-shortcode.php';
 require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-widget.php';
+require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-ics.php';
+require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-block.php';
 require_once SIMPLE_EVENTS_DIR . 'includes/class-simple-events-plugin.php';
 
 /**

@@ -41,9 +41,12 @@ class Simple_Events_Plugin {
 		( new Simple_Events_Meta() )->init();
 		( new Simple_Events_Query() )->init();
 		( new Simple_Events_Shortcode() )->init();
+		( new Simple_Events_ICS() )->init();
+		( new Simple_Events_Block() )->init();
 
 		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 		add_action( 'widgets_init', array( $this, 'register_widget' ) );
+		add_action( 'init', array( $this, 'register_assets' ) );
 		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 
 		// Admin: sortable columns showing the event date.
@@ -71,16 +74,24 @@ class Simple_Events_Plugin {
 	}
 
 	/**
+	 * Register the stylesheet handle so both the front-end enqueue and the
+	 * block's declared `style` can reference it.
+	 */
+	public function register_assets() {
+		wp_register_style(
+			'simple-events',
+			SIMPLE_EVENTS_URL . 'assets/css/simple-events.css',
+			array( 'dashicons' ),
+			SIMPLE_EVENTS_VERSION
+		);
+	}
+
+	/**
 	 * Enqueue front-end styles.
 	 */
 	public function enqueue_assets() {
 		wp_enqueue_style( 'dashicons' );
-		wp_enqueue_style(
-			'simple-events',
-			SIMPLE_EVENTS_URL . 'assets/css/simple-events.css',
-			array(),
-			SIMPLE_EVENTS_VERSION
-		);
+		wp_enqueue_style( 'simple-events' );
 	}
 
 	/**
@@ -203,6 +214,27 @@ class Simple_Events_Plugin {
 		}
 
 		echo '</ul>';
+
+		// "Add to Calendar" (.ics) download link.
+		if ( $datetime ) {
+			printf(
+				'<p class="simple-events-add-to-calendar"><a class="simple-events-ics-link" href="%s"><span class="dashicons dashicons-calendar-alt"></span> %s</a></p>',
+				esc_url( Simple_Events_ICS::get_download_url( $post_id ) ),
+				esc_html__( 'Add to Calendar', 'simple-events' )
+			);
+		}
+
+		// Google Maps embed based on the address.
+		if ( $address && apply_filters( 'simple_events_show_map', true, $post_id ) ) {
+			$query   = trim( $venue . ' ' . $address );
+			$map_src = 'https://maps.google.com/maps?q=' . rawurlencode( $query ) . '&output=embed';
+			printf(
+				'<div class="simple-events-map"><iframe title="%1$s" src="%2$s" width="100%%" height="300" style="border:0;" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe></div>',
+				esc_attr__( 'Event location map', 'simple-events' ),
+				esc_url( $map_src )
+			);
+		}
+
 		echo '</div>';
 
 		return ob_get_clean() . $content;

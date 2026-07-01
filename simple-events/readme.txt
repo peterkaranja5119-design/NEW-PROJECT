@@ -23,7 +23,10 @@ Features:
 * Event Categories taxonomy.
 * Event details meta box (start/end datetime, all-day, venue, address, cost, URL).
 * Front-end details box automatically shown on single event pages.
+* "Add to Calendar" download (RFC 5545 .ics file) on single event pages.
+* Google Maps embed of the event location (no API key required).
 * `[simple_events]` shortcode with attributes for limit, scope, and category.
+* "Events List" block for the block editor (Gutenberg).
 * "Upcoming Events" widget.
 * Admin list table with a sortable "Event Date" column.
 * Event archive automatically ordered by start date.
@@ -66,7 +69,21 @@ ordered most-recent first.
 Yes. Assign an Event Category to an event, then pass the category slug to the
 shortcode's `category` attribute.
 
+= Do visitors get an "Add to Calendar" option? =
+
+Yes. Each single event page includes an "Add to Calendar" link that downloads a
+standard .ics file, which works with Google Calendar, Apple Calendar, and
+Outlook.
+
+= Does the map require a Google Maps API key? =
+
+No. The map uses Google's keyless embed. You can hide the map for a specific
+event with the `simple_events_show_map` filter.
+
 == Changelog ==
 
 = 1.0.0 =
 * Initial release.
+* Event post type, categories, and details meta box.
+* Shortcode, block, and widget for listing events.
+* "Add to Calendar" (.ics) export and Google Maps embed on single events.
