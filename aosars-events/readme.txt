@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 4.3.0
+Stable tag: 4.4.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,10 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 4.4.0 =
+* The last two fixed lines on the single-event page are now editable: the facilitator heading ("Led by the AOSARS faculty") and the how-to-join intro sentence, each a per-event field with a site-wide default under Events > Settings.
+* Inline HTML is now allowed in the "What you'll cover" and "Agenda" lists (e.g. links or bold inside a point), filtered through wp_kses_post and rendered safely.
 
 = 4.3.0 =
 * Rich HTML in event copy: the Lead paragraph, Overview extra, How-to-join note, and Facilitator bio now use a visual editor and accept formatting (bold, links, lists, headings). Input is filtered through wp_kses_post, so only safe HTML is stored, and it renders formatted on the single-event page. Event cards still show plain text (tags stripped) so card layout can't break.

@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           4.3.0
+ * Version:           4.4.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '4.3.0' );
+define( 'AOSEV_VER', '4.4.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -332,7 +332,9 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   var DEF={facilName:"AOSARS Research Faculty",
     facilBio:"Sessions are led by experienced AOSARS researcher-trainers who have guided postgraduate scholars across seven African countries. You leave with practical guidance you can apply to your own work the same week.",
     joinNote:"The room opens 10 minutes before the start time. Add the event to your calendar so the link is always to hand.",
-    overviewExtra:"You will leave with templates and a recording, and a clear next step you can act on the same week."};
+    overviewExtra:"You will leave with templates and a recording, and a clear next step you can act on the same week.",
+    facilHead:"Led by the AOSARS faculty",
+    joinIntro:"This session runs live online on Google Meet. The joining link is posted right here, so you can save it now."};
   function timeOnly(ms){return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz})+" "+tzLabel;}
   function dateBadge(ms){var d=new Date(ms),td=new Date(now);
     var ds=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz});
@@ -453,8 +455,9 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     var isPerson=(mode==="In-person"), isHybrid=(mode==="Hybrid"), isOnline=!isPerson&&!isHybrid;
     var joinNote=e.joinNote||DEF.joinNote, ovx=e.overviewExtra||DEF.overviewExtra;
     var fName=e.facilName||DEF.facilName, fBio=e.facilBio||DEF.facilBio;
+    var fHead=e.facilHead||DEF.facilHead, joinIntro=e.joinIntro||DEF.joinIntro;
     var meetPart=(isOnline||isHybrid)?(
-      '<p class="meet-sub">This session runs live online on Google Meet. The joining link is posted right here, so you can save it now.</p>'+
+      '<p class="meet-sub">'+esc(joinIntro)+'</p>'+
       '<div class="meet-link"><span class="meet-ic">&#128249;</span><span class="meet-url">meet.google.com/'+esc(meet)+'</span><button class="meet-copy" data-act="copy-meet" data-link="https://meet.google.com/'+esc(meet)+'">Copy link</button></div>'+
       '<div class="meet-actions"><a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a></div>'
     ):'';
@@ -480,9 +483,9 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<div class="layout"><div class="main">'+
         '<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+e.lead+'</div>'+(ovx?'<div class="rich">'+ovx+'</div>':'')+'</div>'+
         '<div class="sec"><span class="sec-eyebrow">How to join</span><h2>'+esc(joinHead)+'</h2>'+joinBlock+'</div>'+
-        '<div class="sec"><span class="sec-eyebrow">What you\'ll learn</span><h2>What you\'ll cover</h2><ul class="checks">'+(e.covers||[]).map(function(c){return '<li><span class="ck">&#10003;</span> '+esc(c)+'</li>';}).join("")+'</ul></div>'+
-        '<div class="sec"><span class="sec-eyebrow">Run of show</span><h2>Agenda</h2><div class="agenda">'+(e.agenda||[]).map(function(r){return '<div class="arow"><span class="at">'+esc(r[0])+'</span><span>'+esc(r[1])+'</span></div>';}).join("")+'</div></div>'+
-        '<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>Led by the AOSARS faculty</h2><div class="facil"><div class="facil-av">'+esc(initials(fName))+'</div><div class="facil-b"><div class="facil-n">'+esc(fName)+'</div><div class="facil-d rich">'+fBio+'</div></div></div></div>'+
+        '<div class="sec"><span class="sec-eyebrow">What you\'ll learn</span><h2>What you\'ll cover</h2><ul class="checks">'+(e.covers||[]).map(function(c){return '<li><span class="ck">&#10003;</span> <span class="rich">'+c+'</span></li>';}).join("")+'</ul></div>'+
+        '<div class="sec"><span class="sec-eyebrow">Run of show</span><h2>Agenda</h2><div class="agenda">'+(e.agenda||[]).map(function(r){return '<div class="arow"><span class="at">'+esc(r[0])+'</span><span class="rich">'+r[1]+'</span></div>';}).join("")+'</div></div>'+
+        '<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>'+esc(fHead)+'</h2><div class="facil"><div class="facil-av">'+esc(initials(fName))+'</div><div class="facil-b"><div class="facil-n">'+esc(fName)+'</div><div class="facil-d rich">'+fBio+'</div></div></div></div>'+
       '</div>'+
       '<aside class="sticky">'+
         '<div class="panel"><h3>Event details</h3><div class="facts">'+
@@ -578,8 +581,10 @@ function aosev_settings() {
 		'auto_append'    => 1,
 		// Site-wide defaults for the single-event prose. Any event may override these
 		// with its own "Event details" fields; blank event fields fall back to here.
+		'facil_head'     => 'Led by the AOSARS faculty',
 		'facil_name'     => 'AOSARS Research Faculty',
 		'facil_bio'      => 'Sessions are led by experienced AOSARS researcher-trainers who have guided postgraduate scholars across seven African countries. You leave with practical guidance you can apply to your own work the same week.',
+		'join_intro'     => 'This session runs live online on Google Meet. The joining link is posted right here, so you can save it now.',
 		'join_note'      => 'The room opens 10 minutes before the start time. Add the event to your calendar so the link is always to hand.',
 		'overview_extra' => 'You will leave with templates and a recording, and a clear next step you can act on the same week.',
 	);
@@ -699,10 +704,12 @@ function aosev_fields() {
 		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
 		'summary'  => array( 'textarea', __( 'Card summary (plain text)', 'aosars-events' ) ),
 		'lead'     => array( 'html', __( 'Lead paragraph (HTML allowed: bold, links, lists…)', 'aosars-events' ) ),
-		'covers'   => array( 'lines', __( "What you'll cover (one point per line)", 'aosars-events' ) ),
-		'agenda'   => array( 'lines', __( 'Agenda (one per line, e.g. 14:00 Welcome)', 'aosars-events' ) ),
+		'covers'   => array( 'lines', __( "What you'll cover (one point per line; inline HTML allowed)", 'aosars-events' ) ),
+		'agenda'   => array( 'lines', __( 'Agenda (one per line, e.g. 14:00 Welcome; inline HTML allowed)', 'aosars-events' ) ),
 		'overview_extra' => array( 'html', __( 'Overview — extra content, HTML allowed (blank = site default)', 'aosars-events' ) ),
+		'join_intro'     => array( 'textarea', __( 'How to join — intro sentence (blank = site default)', 'aosars-events' ) ),
 		'join_note'      => array( 'html', __( 'How to join — note, HTML allowed (blank = site default)', 'aosars-events' ) ),
+		'facil_head'     => array( 'text', __( 'Facilitator heading (blank = site default)', 'aosars-events' ) ),
 		'facil_name'     => array( 'text', __( 'Facilitator name (blank = site default)', 'aosars-events' ) ),
 		'facil_bio'      => array( 'html', __( 'Facilitator bio, HTML allowed (blank = site default)', 'aosars-events' ) ),
 	);
@@ -749,7 +756,8 @@ function aosev_save( $post_id, $post ) {
 		$raw = wp_unslash( $_POST[ $name ] );
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
 		elseif ( 'html' === $def[0] ) { $val = wp_kses_post( $raw ); }
-		elseif ( 'textarea' === $def[0] || 'lines' === $def[0] ) { $val = sanitize_textarea_field( $raw ); }
+		elseif ( 'lines' === $def[0] ) { $val = wp_kses_post( $raw ); } // one item per line; inline HTML allowed
+		elseif ( 'textarea' === $def[0] ) { $val = sanitize_textarea_field( $raw ); }
 		elseif ( 'number' === $def[0] ) { $val = '' === $raw ? '' : absint( $raw ); }
 		else { $val = sanitize_text_field( $raw ); }
 		update_post_meta( $post_id, '_aosev_' . $k, $val );
@@ -805,7 +813,9 @@ function aosev_json_events( $limit = 200 ) {
 			'addr' => $g( 'address' ), 'covers' => aosev_lines( $g( 'covers' ) ), 'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
 			'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
 			'overviewExtra' => aosev_rich( $g( 'overview_extra' ) !== '' ? $g( 'overview_extra' ) : $set['overview_extra'] ),
+			'joinIntro'     => $g( 'join_intro' ) !== '' ? $g( 'join_intro' ) : $set['join_intro'],
 			'joinNote'      => aosev_rich( $g( 'join_note' ) !== '' ? $g( 'join_note' ) : $set['join_note'] ),
+			'facilHead'     => $g( 'facil_head' ) !== '' ? $g( 'facil_head' ) : $set['facil_head'],
 			'facilName'     => $g( 'facil_name' ) !== '' ? $g( 'facil_name' ) : $set['facil_name'],
 			'facilBio'      => aosev_rich( $g( 'facil_bio' ) !== '' ? $g( 'facil_bio' ) : $set['facil_bio'] ),
 		);
@@ -982,8 +992,10 @@ function aosev_settings_sanitize( $in ) {
 		'currency'       => isset( $in['currency'] ) ? sanitize_text_field( $in['currency'] ) : 'KES',
 		'all_url'        => isset( $in['all_url'] ) ? esc_url_raw( $in['all_url'] ) : '',
 		'auto_append'    => empty( $in['auto_append'] ) ? 0 : 1,
+		'facil_head'     => isset( $in['facil_head'] ) ? sanitize_text_field( $in['facil_head'] ) : '',
 		'facil_name'     => isset( $in['facil_name'] ) ? sanitize_text_field( $in['facil_name'] ) : '',
 		'facil_bio'      => isset( $in['facil_bio'] ) ? wp_kses_post( $in['facil_bio'] ) : '',
+		'join_intro'     => isset( $in['join_intro'] ) ? sanitize_textarea_field( $in['join_intro'] ) : '',
 		'join_note'      => isset( $in['join_note'] ) ? wp_kses_post( $in['join_note'] ) : '',
 		'overview_extra' => isset( $in['overview_extra'] ) ? wp_kses_post( $in['overview_extra'] ) : '',
 	);
@@ -997,8 +1009,10 @@ function aosev_settings_page() {
 	echo '<tr><th>' . esc_html__( 'View all events URL', 'aosars-events' ) . '</th><td><input type="url" name="' . esc_attr( AOSEV_OPTION ) . '[all_url]" value="' . esc_attr( $s['all_url'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Auto-show event layout', 'aosars-events' ) . '</th><td><label><input type="checkbox" name="' . esc_attr( AOSEV_OPTION ) . '[auto_append]" value="1" ' . checked( ! empty( $s['auto_append'] ), true, false ) . '> ' . esc_html__( 'Append the AOSARS layout on single event pages. Turn off to design events entirely in Elementor or the block editor.', 'aosars-events' ) . '</label></td></tr>';
 	echo '<tr><th colspan="2"><h2 style="margin:6px 0">' . esc_html__( 'Single-event defaults', 'aosars-events' ) . '</h2><p class="description" style="font-weight:400">' . esc_html__( 'Used on every event unless the event overrides them in its own Event details fields.', 'aosars-events' ) . '</p></th></tr>';
+	echo '<tr><th>' . esc_html__( 'Facilitator heading', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[facil_head]" value="' . esc_attr( $s['facil_head'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Facilitator name', 'aosars-events' ) . '</th><td><input type="text" name="' . esc_attr( AOSEV_OPTION ) . '[facil_name]" value="' . esc_attr( $s['facil_name'] ) . '" class="regular-text"></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Facilitator bio', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[facil_bio]" rows="3" class="large-text">' . esc_textarea( $s['facil_bio'] ) . '</textarea></td></tr>';
+	echo '<tr><th>' . esc_html__( 'How-to-join intro sentence', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[join_intro]" rows="2" class="large-text">' . esc_textarea( $s['join_intro'] ) . '</textarea></td></tr>';
 	echo '<tr><th>' . esc_html__( 'How-to-join note', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[join_note]" rows="2" class="large-text">' . esc_textarea( $s['join_note'] ) . '</textarea></td></tr>';
 	echo '<tr><th>' . esc_html__( 'Overview extra paragraph', 'aosars-events' ) . '</th><td><textarea name="' . esc_attr( AOSEV_OPTION ) . '[overview_extra]" rows="2" class="large-text">' . esc_textarea( $s['overview_extra'] ) . '</textarea></td></tr>';
 	echo '</tbody></table>';
