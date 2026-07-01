@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.2.0
+Stable tag: 5.3.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,10 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.3.0 =
+* Fixes inconsistent single pages: newly-created events rendered the theme's plain page while older ones showed the AOSARS design. Cause — the plugin auto-skipped any event that had ever been opened in Elementor (its `_elementor_edit_mode` was "builder"). Now EVERY event uses the AOSARS design by default; a page only uses Elementor/the theme when you explicitly tick the new per-event "Design THIS event page in Elementor / the theme instead" box.
+* Hardened the events query so it can never silently exclude an event that is missing the start-date meta (it no longer INNER-JOINs on that meta key).
 
 = 5.2.0 =
 * Fixes the "everything shown twice" problem on event pages. The plugin now renders the whole single-event page itself (site header + AOSARS design + site footer) and bypasses the theme's own post title, featured image and content — so the title/image/content are no longer displayed by both the theme and the plugin. New "Use the AOSARS single-event page" setting (on by default); turn it off to keep the theme's own single template. Block themes and Elementor-built events automatically fall back to the previous behaviour.

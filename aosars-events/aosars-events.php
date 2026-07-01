@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.2.0
+ * Version:           5.3.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.2.0' );
+define( 'AOSEV_VER', '5.3.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -903,6 +903,7 @@ function aosev_fields() {
 		'agenda'   => array( 'lines', __( 'Agenda — one per line, e.g. 14:00 Welcome (blank hides the section)', 'aosars-events' ) ),
 		'facil_name' => array( 'text', __( 'Facilitator name (blank hides the facilitator section)', 'aosars-events' ) ),
 		'facil_bio'  => array( 'html', __( 'Facilitator bio (HTML allowed; blank hides the facilitator section)', 'aosars-events' ) ),
+		'use_builder' => array( 'checkbox', __( 'Design THIS event page in Elementor / the theme instead of the AOSARS layout', 'aosars-events' ) ),
 	);
 	// Anything richer than these fields is authored in the WordPress editor / Elementor
 	// (the event body) and renders inside the single-page “About this event” area.
@@ -912,6 +913,10 @@ function aosev_box_html( $post ) {
 	echo '<style>.aosev-mb label{display:block;font-weight:600;margin:12px 0 4px}.aosev-mb input,.aosev-mb select,.aosev-mb textarea{width:100%;max-width:560px}.aosev-mb textarea{min-height:88px}</style><div class="aosev-mb">';
 	foreach ( aosev_fields() as $k => $def ) {
 		$t = $def[0]; $v = get_post_meta( $post->ID, '_aosev_' . $k, true );
+		if ( 'checkbox' === $t ) {
+			echo '<label style="display:block;margin:14px 0 4px;font-weight:600"><input type="checkbox" value="1" id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" ' . checked( $v, '1', false ) . '> ' . esc_html( $def[1] ) . '</label>';
+			continue;
+		}
 		echo '<label for="aosev_' . esc_attr( $k ) . '">' . esc_html( $def[1] ) . '</label>';
 		if ( 'select' === $t ) {
 			echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '"><option value="">' . esc_html__( 'Select', 'aosars-events' ) . '</option>';
@@ -945,6 +950,7 @@ function aosev_save( $post_id, $post ) {
 	if ( ! current_user_can( 'edit_post', $post_id ) ) { return; }
 	foreach ( aosev_fields() as $k => $def ) {
 		$name = 'aosev_' . $k;
+		if ( 'checkbox' === $def[0] ) { update_post_meta( $post_id, '_aosev_' . $k, empty( $_POST[ $name ] ) ? '' : '1' ); continue; } // unchecked = absent, so always resolve
 		if ( ! isset( $_POST[ $name ] ) ) { continue; }
 		$raw = wp_unslash( $_POST[ $name ] );
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
@@ -990,9 +996,12 @@ function aosev_agenda_rows( $s ) {
 }
 function aosev_json_events( $limit = 200 ) {
 	$rows = array(); $meets = array();
+	// Do NOT order by the _aosev_start meta here: that adds an INNER JOIN which would
+	// silently drop any event missing the meta key. Fetch all published events and let
+	// the app sort by start date (soonest()).
 	$q = new WP_Query( array(
 		'post_type' => 'aosars_event', 'post_status' => 'publish', 'posts_per_page' => $limit,
-		'orderby' => 'meta_value', 'meta_key' => '_aosev_start', 'order' => 'ASC', 'no_found_rows' => true,
+		'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true,
 	) );
 	foreach ( (array) $q->posts as $p ) {
 		$id = $p->ID;
@@ -1123,7 +1132,10 @@ function aosev_single_takeover() {
 	$s = aosev_settings();
 	if ( empty( $s['own_template'] ) ) { return; }
 	$id = (int) get_the_ID();
-	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return; } // Elementor drives it
+	// Consistency: every event uses the AOSARS design UNLESS it is explicitly opted out
+	// per-event. (Previously any event merely opened in Elementor was auto-skipped, which
+	// made newly-created events render the theme's plain page instead of the AOSARS one.)
+	if ( get_post_meta( $id, '_aosev_use_builder', true ) ) { return; }
 	if ( function_exists( 'wp_is_block_theme' ) && wp_is_block_theme() ) { return; }     // block theme: use the_content fallback
 	if ( ! function_exists( 'get_header' ) ) { return; }
 	$app = aosev_mount( array( 'view' => 'single', 'id' => $id ) );
@@ -1140,9 +1152,9 @@ function aosev_append_single( $content ) {
 	$s = aosev_settings();
 	if ( empty( $s['auto_append'] ) ) { return $content; }
 	$id = (int) get_the_ID();
-	// Behave like a post: if the event page is designed in Elementor, respect that
-	// layout and do not append the default view (add the Single Event widget instead).
-	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return $content; }
+	// Only step aside when the event is explicitly opted out per-event (not merely
+	// because it was once opened in Elementor).
+	if ( get_post_meta( $id, '_aosev_use_builder', true ) ) { return $content; }
 	// Render the full branded single design in place of the raw content. The event's
 	// own body is rendered inside the design's "About this event" area, so we replace
 	// $content (rather than append) to avoid showing it twice.
