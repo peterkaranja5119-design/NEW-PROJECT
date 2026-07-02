@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.9.0
+Stable tag: 6.0.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,13 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.0.0 =
+* THE WORKFLOW RELEASE — grounded in direct inspection of the live site. Forensics on aosars.com showed the plugin's features ARE live and rendering, but every one of the 15 events had start=0 and an empty join link: the data was never being SAVED, because events are created inside the Elementor editor, where WordPress meta boxes (the schedule/details boxes) do not exist.
+* Event details can now be entered INSIDE Elementor: open the event with Elementor, click the ⚙ Settings icon (bottom-left), open "📅 AOSARS Event details" — Start & End date-time pickers, Timezone, Format, Online platform (Google Meet / Zoom / Microsoft Teams / Webex / YouTube Live / Other), Join link, Venue and Fee. Click UPDATE and they save to the event and drive the date, countdown and Join button on the page.
+* The Elementor panel and the wp-admin boxes write the same fields; blanks in Elementor never wipe values entered in wp-admin.
+* Added "Update URI: false" to the plugin header so wordpress.org can never accidentally replace this plugin with a same-named one.
+* New companion diagnostic plugin "AOSARS Doctor" (separate zip): Tools → AOSARS Doctor produces a copy-paste report — plugin copies/versions, running version, time-conversion probe, and the raw saved schedule data of the last 10 events.
 
 = 5.9.0 =
 * Deployment-integrity release. Diagnosis: the entry fields and time pipeline are verified correct in this code, yet the site keeps behaving like an old version — which means the running copy is not the uploaded copy (typically a duplicate plugin folder, e.g. aosars-events-2, left by repeated zip uploads; the older copy loads first and silently blocks the newer one).

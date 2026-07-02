@@ -2,10 +2,11 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.9.0
+ * Version:           6.0.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
+ * Update URI:        false
  * Requires at least: 7.0
  * Requires PHP:      7.4
  * Tested up to:      7.0
@@ -19,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v5.9.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.0.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '5.9.0' );
+define( 'AOSEV_VER', '6.0.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -1550,6 +1551,54 @@ function aosev_full_single_css() {
 		. '.single-aosars_event .aosev-app .wrap{max-width:1180px;margin:0 auto;}'
 		. '@media(max-width:1180px){.single-aosars_event .aosev-app .wrap{padding-left:20px;padding-right:20px;}}'
 		. '</style>' . "\n";
+}
+
+/* ---- 7a. ELEMENTOR DOCUMENT SETTINGS: enter event details INSIDE the Elementor editor ----
+   Live-site forensics showed every event had start=0 and joinUrl="" although the entry
+   fields exist — because events are created in Elementor, where WP meta boxes are not
+   shown. So we register the essential fields as Elementor Document Settings (the ⚙
+   panel, bottom-left of the editor) and sync them to the same _aosev_* meta on save. */
+add_action( 'elementor/documents/register_controls', aosev_guard( 'aosev_el_doc_controls' ) );
+function aosev_el_doc_controls( $document ) {
+	if ( ! class_exists( '\Elementor\Controls_Manager' ) || ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) || ! method_exists( $document, 'start_controls_section' ) ) { return; }
+	$id = (int) $document->get_main_id();
+	if ( 'aosars_event' !== get_post_type( $id ) ) { return; }
+	$g = function ( $k ) use ( $id ) { return (string) get_post_meta( $id, '_aosev_' . $k, true ); };
+	$document->start_controls_section( 'aosev_doc', array(
+		'label' => __( '📅 AOSARS Event details', 'aosars-events' ),
+		'tab'   => \Elementor\Controls_Manager::TAB_SETTINGS,
+	) );
+	$document->add_control( 'aosev_doc_note', array(
+		'type'            => \Elementor\Controls_Manager::RAW_HTML,
+		'raw'             => __( 'These save to the event itself and drive the date, countdown, platform and Join button on the page. Click UPDATE after changing them.', 'aosars-events' ),
+		'content_classes' => 'elementor-descriptor',
+	) );
+	$document->add_control( 'aosev_start', array( 'label' => __( 'Start date & time', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::DATE_TIME, 'default' => str_replace( 'T', ' ', $g( 'start' ) ) ) );
+	$document->add_control( 'aosev_end', array( 'label' => __( 'End date & time', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::DATE_TIME, 'default' => str_replace( 'T', ' ', $g( 'end' ) ) ) );
+	$document->add_control( 'aosev_tzone', array( 'label' => __( 'Timezone (times above are in this zone)', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::SELECT, 'options' => aosev_timezones(), 'default' => $g( 'tzone' ) ? $g( 'tzone' ) : 'Africa/Nairobi' ) );
+	$document->add_control( 'aosev_mode', array( 'label' => __( 'Format', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::SELECT, 'options' => array( 'Online' => 'Online', 'In-person' => 'In-person', 'Hybrid' => 'Hybrid' ), 'default' => $g( 'mode' ) ? $g( 'mode' ) : 'Online' ) );
+	$document->add_control( 'aosev_platform', array( 'label' => __( 'Online platform', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::SELECT, 'options' => array( 'Google Meet' => 'Google Meet', 'Zoom' => 'Zoom', 'Microsoft Teams' => 'Microsoft Teams', 'Webex' => 'Webex', 'YouTube Live' => 'YouTube Live', 'Other' => 'Other' ), 'default' => $g( 'platform' ) ? $g( 'platform' ) : 'Google Meet' ) );
+	$document->add_control( 'aosev_join_url', array( 'label' => __( 'Join link — paste the Meet/Zoom/Teams URL', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'join_url' ), 'placeholder' => 'https://zoom.us/j/…' ) );
+	$document->add_control( 'aosev_venue', array( 'label' => __( 'Venue (for in-person / hybrid)', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'venue' ) ) );
+	$document->add_control( 'aosev_fee', array( 'label' => __( 'Fee (e.g. KES 2,500 or Free)', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'fee' ) ) );
+	$document->end_controls_section();
+}
+add_action( 'elementor/document/after_save', aosev_guard( 'aosev_el_doc_saved' ), 10, 2 );
+function aosev_el_doc_saved( $document, $data = null ) {
+	if ( ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) || ! method_exists( $document, 'get_settings' ) ) { return; }
+	$id = (int) $document->get_main_id();
+	if ( 'aosars_event' !== get_post_type( $id ) ) { return; }
+	$map = array( 'aosev_start' => 'start', 'aosev_end' => 'end', 'aosev_tzone' => 'tzone', 'aosev_mode' => 'mode', 'aosev_platform' => 'platform', 'aosev_join_url' => 'join_url', 'aosev_venue' => 'venue', 'aosev_fee' => 'fee' );
+	foreach ( $map as $ctrl => $key ) {
+		$v = $document->get_settings( $ctrl );
+		if ( null === $v || '' === $v ) { continue; } // non-destructive: blanks never wipe values entered in wp-admin
+		$v = (string) $v;
+		if ( 'start' === $key || 'end' === $key ) { $v = sanitize_text_field( str_replace( ' ', 'T', $v ) ); }
+		elseif ( 'tzone' === $key ) { if ( ! array_key_exists( $v, aosev_timezones() ) ) { continue; } }
+		elseif ( 'join_url' === $key ) { $v = esc_url_raw( $v ); if ( '' === $v ) { continue; } }
+		else { $v = sanitize_text_field( $v ); }
+		update_post_meta( $id, '_aosev_' . $key, $v );
+	}
 }
 
 /* ---- 7. ELEMENTOR (optional; loaded only when active) ---- */
