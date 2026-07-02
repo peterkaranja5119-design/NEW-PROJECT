@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.5.0
+Stable tag: 5.6.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,12 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.6.0 =
+* Data entry overhauled for discoverability. A new "📅 Event schedule" box sits in the side column right next to Publish (start, end, format) — impossible to miss — and the main "Event details" box is organised into labelled groups (Venue & joining, Tickets & organiser, Event card, Single-page sections, Display) in a two-column layout instead of one flat 19-field list.
+* New Organiser field: the Event details panel's Organiser line is now editable per event (blank = AOSARS) instead of hardcoded.
+* Events without a start date no longer render the Unix epoch ("Thu 1 January 1970"): cards show a TBA badge and "Date to be announced", the single page shows "Date & time to be announced" with no countdown, and undated events sort after dated ones everywhere (portal, home, calendar).
+* Portal filter bar, matching the news page: a Search box ("Search events, for example methodology"), Topic dropdown, Month dropdown (built from the months that actually have events) and Sort by (Soonest first / Newest first / Title A–Z). Searching filters live without losing focus; Clear filters resets everything.
 
 = 5.5.0 =
 * Fixes "you must call the_content function for Elementor to work" when opening an event with Edit with Elementor. The plugin now detects the Elementor editor/preview context and stands aside there (it does not take over the page or replace the content), so Elementor finds the content area. Normal front-end event pages are unchanged — they still render the AOSARS design.

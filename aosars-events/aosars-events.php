@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.5.0
+ * Version:           5.6.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.5.0' );
+define( 'AOSEV_VER', '5.6.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -310,6 +310,13 @@ define( 'AOSEV_CSS', <<<'AOSEV_CSS_END'
   .aosev-chtml{margin:0 0 18px;}
 .aosev-app .aosev-chtml img{max-width:100%;height:auto;}
 .aosev-app .aosev-chtml iframe{max-width:100%;}
+.aosev-app /* search + topic + month + sort filter bar (news-page style) */
+  .filters{display:grid;grid-template-columns:2fr 1fr 1fr 1fr;gap:12px;margin:0 0 16px;padding:14px;background:#fff;border:1px solid var(--rule);border-radius:14px;}
+@media(max-width:880px){.aosev-app .filters{grid-template-columns:1fr 1fr;}}
+@media(max-width:560px){.aosev-app .filters{grid-template-columns:1fr;}}
+.aosev-app .filters .f label{display:block;font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-faint);margin:0 0 5px;}
+.aosev-app .filters input[type="search"]{width:100%;height:44px;border:1px solid var(--rule);border-radius:10px;padding:0 13px;font-size:14px;font-family:inherit;font-weight:600;color:var(--ink);background:#fff;outline:none;transition:.15s;-webkit-appearance:none;}
+.aosev-app .filters input[type="search"]:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,174,254,.16);}
 AOSEV_CSS_END
 );
 define( 'AOSEV_JS', <<<'AOSEV_JS_END'
@@ -329,6 +336,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   var tz="Africa/Nairobi", tzLabel="EAT", gridMode="grid";
   var state=(window.AOSEV_DATA&&window.AOSEV_DATA.state&&window.AOSEV_DATA.state.view==="single")?{view:"single",id:window.AOSEV_DATA.state.id,append:!!window.AOSEV_DATA.state.append}:{view:"portal",id:null};
   var _t=new Date(), calY=_t.getFullYear(), calM=_t.getMonth(), calMode="month", selDay=null, selCat=null;
+  var q="", selMonth="", sortBy="soonest";
 
   function pad(n){return (n<10?"0":"")+n;}
   var ESCMAP={"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"};
@@ -341,18 +349,19 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   function initials(s){var w=String(s||"").trim().split(/\s+/).filter(Boolean);
     if(!w.length)return "AOSARS";
     return ((w[0][0]||"")+(w.length>1?(w[w.length-1][0]||""):"")).toUpperCase()||"AOSARS";}
-  function timeOnly(ms){return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz})+" "+tzLabel;}
-  function dateBadge(ms){var d=new Date(ms),td=new Date(now);
+  function dated(e){return e&&e.start>0;}
+  function timeOnly(ms){if(!(ms>0))return "Time TBA";return new Date(ms).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz})+" "+tzLabel;}
+  function dateBadge(ms){if(!(ms>0))return '<span class="d">TBA</span>';var d=new Date(ms),td=new Date(now);
     var ds=d.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz});
     var ts=td.toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz});
     if(ds===ts)return '<span class="d">Today</span>';var p=ds.split(" ");return p[1].toUpperCase()+'<span class="d">'+p[0]+'</span>';}
-  function fullDate(e){var d=new Date(e.start);
+  function fullDate(e){if(!dated(e))return "Date & time to be announced";var d=new Date(e.start);
     var ds=d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:tz});
     var ts=d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz});
     var te=new Date(e.start+e.durH*H).toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit",hour12:false,timeZone:tz});
     return ds+" \u00b7 "+ts+"\u2013"+te+" "+tzLabel;}
   function parts(ms){var s=Math.max(0,Math.floor((ms-Date.now())/1000));return{d:Math.floor(s/86400),h:Math.floor(s/3600)%24,m:Math.floor(s/60)%60,s:s%60};}
-  function mini(ms){var p=parts(ms);if(p.d>0)return "Starts in "+p.d+"d "+p.h+"h";if(p.h>0)return "Starts in "+p.h+"h "+p.m+"m";if(p.m>0)return "Starts in "+pad(p.m)+":"+pad(p.s);return (ms-Date.now()>0)?"Starts in "+p.s+"s":"Happening now";}
+  function mini(ms){if(!(ms>0))return "Date to be announced";var p=parts(ms);if(p.d>0)return "Starts in "+p.d+"d "+p.h+"h";if(p.h>0)return "Starts in "+p.h+"h "+p.m+"m";if(p.m>0)return "Starts in "+pad(p.m)+":"+pad(p.s);return (ms-Date.now()>0)?"Starts in "+p.s+"s":"Happening now";}
   function clockHTML(pfx,big){
     var u=[["D","days"],["H","hrs"],["M","min"],["S","sec"]];
     return '<div class="lvclk'+(big?' lg':'')+'">'+u.map(function(x){
@@ -360,17 +369,37 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   function updateClock(pfx,ms){var p=parts(ms),v={D:p.d,H:p.h,M:p.m,S:p.s},fr={D:Math.min(p.d/30,1),H:p.h/24,M:p.m/60,S:p.s/60};
     ["D","H","M","S"].forEach(function(k){set(pfx+k,pad(v[k]));var b=document.getElementById(pfx+k+"b");if(b)b.style.height=(fr[k]*100).toFixed(1)+"%";});}
   function utc(ms){return new Date(ms).toISOString().replace(/[-:]/g,"").split(".")[0]+"Z";}
-  function soonest(){return EVENTS.slice().sort(function(a,b){return a.start-b.start;});}
+  function soonest(){return EVENTS.slice().sort(function(a,b){
+    if(dated(a)!==dated(b))return dated(a)?-1:1; // events without a date go last
+    return a.start-b.start;});}
+  function sorted(list){
+    var l=list.slice();
+    if(sortBy==="newest"){l.sort(function(a,b){return (b.pub||0)-(a.pub||0);});}
+    else if(sortBy==="az"){l.sort(function(a,b){return String(a.t).localeCompare(String(b.t));});}
+    else{l.sort(function(a,b){if(dated(a)!==dated(b))return dated(a)?-1:1;return a.start-b.start;});}
+    return l;}
   function dayKey(ms){var d=new Date(ms);return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
   function cellKey(y,m,d){return y+"-"+pad(m+1)+"-"+pad(d);}
-  function eventsByDay(){var x={};EVENTS.forEach(function(e){var k=dayKey(e.start);(x[k]=x[k]||[]).push(e);});return x;}
-  function eventsByMonth(){var x={};EVENTS.forEach(function(e){var d=new Date(e.start);var k=d.getFullYear()+"-"+d.getMonth();x[k]=(x[k]||0)+1;});return x;}
+  function eventsByDay(){var x={};EVENTS.forEach(function(e){if(!dated(e))return;var k=dayKey(e.start);(x[k]=x[k]||[]).push(e);});return x;}
+  function eventsByMonth(){var x={};EVENTS.forEach(function(e){if(!dated(e))return;var d=new Date(e.start);var k=d.getFullYear()+"-"+d.getMonth();x[k]=(x[k]||0)+1;});return x;}
   function categories(){var x={};EVENTS.forEach(function(e){x[e.cat]=(x[e.cat]||0)+1;});return Object.keys(x).map(function(k){return [k,x[k]];});}
-  function visibleEvents(){return soonest().filter(function(e){
-    if(selCat&&e.cat!==selCat)return false;
-    if(selDay&&dayKey(e.start)!==selDay)return false; return true;});}
+  function monthOptions(){
+    var x={};EVENTS.forEach(function(e){if(!dated(e))return;var d=new Date(e.start);var k=d.getFullYear()+"-"+d.getMonth();x[k]=(x[k]||0)+1;});
+    return Object.keys(x).sort(function(a,b){var pa=a.split("-"),pb=b.split("-");return (pa[0]-pb[0])||(pa[1]-pb[1]);})
+      .map(function(k){var p=k.split("-");return {key:k,label:MONTHS[+p[1]]+" "+p[0],count:x[k]};});}
+  function haystack(e){return (e.t+" "+stripTags(e.blurb||e.lead||"")+" "+e.cat+" "+e.venue).toLowerCase();}
+  function visibleEvents(){
+    var needle=q.trim().toLowerCase();
+    return sorted(EVENTS.filter(function(e){
+      if(needle&&haystack(e).indexOf(needle)===-1)return false;
+      if(selCat&&e.cat!==selCat)return false;
+      if(selMonth){if(!dated(e))return false;var d=new Date(e.start);if((d.getFullYear()+"-"+d.getMonth())!==selMonth)return false;}
+      if(selDay&&(!dated(e)||dayKey(e.start)!==selDay))return false;
+      return true;}));}
   function filterLabel(){
+    if(q.trim())return 'Results for “'+esc(q.trim())+'”';
     if(selDay){var d=new Date(selDay+"T12:00:00");return "Events on "+d.toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"short"});}
+    if(selMonth){var p=selMonth.split("-");return MONTHS[+p[1]]+" "+p[0];}
     if(selCat)return selCat; return "All upcoming events";}
 
   function tzbarHTML(){
@@ -434,19 +463,44 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<div class="foot"><span class="pill">'+esc(e.cat)+'</span><span class="more">'+(full?'Waitlist':'View event')+' <i>&#8594;</i></span></div></div></article>';
   }
 
+  function filtersHTML(){
+    var topics='<option value="">All topics</option>'+categories().map(function(c){
+      return '<option value="'+esc(c[0])+'"'+(selCat===c[0]?' selected':'')+'>'+esc(c[0])+' ('+c[1]+')</option>';}).join("");
+    var months='<option value="">All months</option>'+monthOptions().map(function(m){
+      return '<option value="'+m.key+'"'+(selMonth===m.key?' selected':'')+'>'+m.label+' ('+m.count+')</option>';}).join("");
+    var sorts=[["soonest","Soonest first"],["newest","Newest first"],["az","Title A\u2013Z"]].map(function(s){
+      return '<option value="'+s[0]+'"'+(sortBy===s[0]?' selected':'')+'>'+s[1]+'</option>';}).join("");
+    return '<div class="filters">'+
+      '<div class="f"><label for="evSearch">Search events</label><input type="search" id="evSearch" value="'+esc(q)+'" placeholder="Search events, for example methodology" autocomplete="off"></div>'+
+      '<div class="f"><label for="topicSelect">Topic</label><div class="selectwrap"><select id="topicSelect">'+topics+'</select><span class="chev">&#9662;</span></div></div>'+
+      '<div class="f"><label for="monthSelect">Month</label><div class="selectwrap"><select id="monthSelect">'+months+'</select><span class="chev">&#9662;</span></div></div>'+
+      '<div class="f"><label for="sortSelect">Sort by</label><div class="selectwrap"><select id="sortSelect">'+sorts+'</select><span class="chev">&#9662;</span></div></div>'+
+    '</div>';
+  }
+  function gridInner(){
+    var vis=visibleEvents();
+    return vis.length?vis.map(cardHTML).join(""):(EVENTS.length?'<div class="empty-state">No events match this filter. <b data-act="clear-filter" style="color:var(--indigo);cursor:pointer">Clear filters</b></div>':'<div class="empty-state">No upcoming events are scheduled yet. Please check back soon.</div>');
+  }
+  function fbarInner(){
+    var n=visibleEvents().length, filtered=selDay||selCat||selMonth||q.trim();
+    return '<div class="lab">'+filterLabel()+'<span>'+n+' event'+(n===1?'':'s')+'</span></div>'+(filtered?'<button class="clear" data-act="clear-filter">&times; Clear filters</button>':'');
+  }
+  /* Refresh only the results (keeps focus in the search box while typing). */
+  function refreshList(){
+    var g=document.getElementById("evGrid"), f=document.getElementById("evFbar");
+    if(g)g.innerHTML=gridInner(); if(f)f.innerHTML=fbarInner();
+    tick();
+  }
   function portalHTML(){
     var todays=EVENTS.filter(function(e){return e.today;});
     var ticker=todays.length?'<aside class="ticker"><span class="ticker__tag">TODAY</span><div class="ticker__item"><strong>'+esc(todays[0].t)+'</strong> <span>&middot; '+timeOnly(todays[0].start)+' &middot; '+esc(todays[0].venue)+'</span></div><span class="ticker__x" data-act="dismiss">&times;</span></aside>':'';
-    var vis=visibleEvents();
-    var cards=vis.length?vis.map(cardHTML).join(""):(EVENTS.length?'<div class="empty-state">No events match this filter. <b data-act="clear-filter" style="color:var(--indigo);cursor:pointer">Clear filter</b></div>':'<div class="empty-state">No upcoming events are scheduled yet. Please check back soon.</div>');
-    var filtered=selDay||selCat;
-    var fbar='<div class="fbar"><div class="lab">'+filterLabel()+'<span>'+vis.length+' event'+(vis.length===1?'':'s')+'</span></div>'+(filtered?'<button class="clear" data-act="clear-filter">&times; Clear filter</button>':'')+'</div>';
     return ''+ticker+
       '<div class="head"><div><h1 tabindex="-1" id="focusH">Upcoming events</h1><div class="stats">'+EVENTS.length+' upcoming \u00b7 <b>'+todays.length+' today</b></div></div>'+
         '<div class="view" role="group" aria-label="Layout"><button data-act="grid" class="'+(gridMode==="grid"?"on":"")+'" title="Grid">&#9707;</button><button data-act="list" class="'+(gridMode==="list"?"on":"")+'" title="List">&#9776;</button></div></div>'+
       tzbarHTML()+
-      '<div class="portalwrap"><div class="pmain">'+fbar+'<div class="egrid '+(gridMode==="list"?"is-list":"")+'">'+cards+'</div>'+
-        (filtered?'':'<nav class="pager"><span class="pg">&#8249;</span><span class="pg on">1</span><span class="pg">2</span><span class="pg">&#8250;</span></nav>')+
+      '<div class="portalwrap"><div class="pmain">'+filtersHTML()+
+        '<div class="fbar" id="evFbar">'+fbarInner()+'</div>'+
+        '<div class="egrid '+(gridMode==="list"?"is-list":"")+'" id="evGrid">'+gridInner()+'</div>'+
       '</div>'+sidebarHTML()+'</div>';
   }
 
@@ -501,7 +555,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<div class="fact"><span class="fi">&#128421;</span><div><div class="fk">Format</div><div class="fv">'+esc(e.mode)+'</div></div></div>'+
       '<div class="fact"><span class="fi">&#128249;</span><div><div class="fk">'+platformLabel+'</div><div class="fv">'+esc(e.venue)+(e.addr&&isPerson?'<br><span style="font-weight:400">'+esc(e.addr)+'</span>':'')+'</div></div></div>'+
       (hasMeet?'<div class="fact"><span class="fi">&#128279;</span><div><div class="fk">Join link</div><div class="fv"><a href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">meet.google.com/'+esc(meet)+'</a></div></div></div>':'')+
-      '<div class="fact"><span class="fi">&#127891;</span><div><div class="fk">Organiser</div><div class="fv">AOSARS</div></div></div>'+
+      '<div class="fact"><span class="fi">&#127891;</span><div><div class="fk">Organiser</div><div class="fv">'+esc(e.org||"AOSARS")+'</div></div></div>'+
       '<div class="fact"><span class="fi">&#128176;</span><div><div class="fk">Fee</div><div class="fv">'+esc(e.fee)+'</div></div></div></div>'+
       '<div class="calbtns">'+joinBtn+'<a class="btn'+(hasMeet?'':' primary')+'" data-act="ics" data-id="'+e.id+'">&#11015; Add to calendar (.ics)</a><a class="btn" id="gcal" target="_blank" rel="noopener">&#128197; Google Calendar</a></div></div>';
     var relBlock='<div class="moreevents"><div class="moreevents-h">More events <a data-act="all-events">View all &#8594;</a></div>'+rel+'</div>';
@@ -513,7 +567,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       '<span>'+e.durH+' hour'+(e.durH>1?'s':'')+'</span></div></div>'+
       '<h1 tabindex="-1" id="focusH">'+esc(e.t)+'</h1></header>'+
       (e.img?'<div class="bframe"><img class="bphoto" src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>':'')+
-      '<section class="cdband"><div class="lbl"><i></i> Starts in</div><div class="when" id="sWhen">'+fullDate(e)+'</div>'+clockHTML("sh",true)+'</section>'+
+      (dated(e)?'<section class="cdband"><div class="lbl"><i></i> Starts in</div><div class="when" id="sWhen">'+fullDate(e)+'</div>'+clockHTML("sh",true)+'</section>':'<section class="cdband"><div class="when">Date &amp; time to be announced</div></section>')+
       tzbarHTML();
     var layout=secs
       ? '<div class="layout"><div class="main">'+secs+'</div><aside class="sticky">'+facts+relBlock+'</aside></div>'
@@ -534,11 +588,11 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   function tick(){
     if(state.view==="portal"){
       var nx=soonest()[0];
-      if(nx){updateClock("nu",nx.start);set("nuWhen",mini(nx.start));}
+      if(nx&&dated(nx)){updateClock("nu",nx.start);set("nuWhen",mini(nx.start));}
       EVENTS.forEach(function(e){var c=document.querySelector('[data-cd="'+e.id+'"]');if(c)c.textContent=mini(e.start);});
     }else{
       var e=byId[state.id];
-      if(e){updateClock("sh",e.start);}
+      if(e&&dated(e)){updateClock("sh",e.start);}
     }
   }
   function go(view,id){state.view=view;state.id=id||null;location.hash=view==="portal"?"events":"event/"+id;renderApp();}
@@ -564,12 +618,19 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     else if(a==="cal-day"){var k=el.dataset.key;selDay=(selDay===k?null:k);renderApp();}
     else if(a==="cal-month"){var ym=el.dataset.ym.split("-");calY=parseInt(ym[0],10);calM=parseInt(ym[1],10);calMode="month";renderApp();}
     else if(a==="cat"){var c=el.dataset.cat;selCat=(selCat===c?null:c);renderApp();}
-    else if(a==="clear-filter"){selDay=null;selCat=null;renderApp();}
+    else if(a==="clear-filter"){selDay=null;selCat=null;selMonth="";q="";renderApp();}
     else if(a==="sub-all"){ev.preventDefault();downloadAllICS();}
     else if(a==="copy-meet"){ev.preventDefault();var lk=el.dataset.link;if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(lk);}el.textContent="Copied";setTimeout(function(){el.textContent="Copy link";},1600);}
   });
   document.addEventListener("change",function(ev){
-    if(ev.target.id==="catSelect"&&ev.target.closest(".aosev-app")){selCat=ev.target.value||null;renderApp();}
+    if(!ev.target.closest(".aosev-app"))return;
+    if(ev.target.id==="catSelect"){selCat=ev.target.value||null;renderApp();}
+    else if(ev.target.id==="topicSelect"){selCat=ev.target.value||null;renderApp();}
+    else if(ev.target.id==="monthSelect"){selMonth=ev.target.value||"";renderApp();}
+    else if(ev.target.id==="sortSelect"){sortBy=ev.target.value||"soonest";renderApp();}
+  });
+  document.addEventListener("input",function(ev){
+    if(ev.target.id==="evSearch"&&ev.target.closest(".aosev-app")){q=ev.target.value||"";refreshList();}
   });
   document.addEventListener("keydown",function(ev){
     if(ev.key==="Enter"||ev.key===" "){var el=ev.target.closest('[data-act="view-event"],[data-act="cal-day"],[data-act="cat"],[data-act="cal-month"]');
@@ -685,9 +746,11 @@ define( 'AOSEV_HOME_JS', <<<'AOSEV_HOME_JS_END'
   function timeOnly(ms){return tOnly(ms)+" "+TZLAB;}
   function fullWhen(ms){return new Date(ms).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:TZ})+" · "+tOnly(ms)+" "+TZLAB;}
   function parts(ms){var s=Math.max(0,Math.floor((ms-Date.now())/1000));return{d:Math.floor(s/86400),h:Math.floor(s/3600)%24,m:Math.floor(s/60)%60,s:s%60};}
-  function mini(ms){var p=parts(ms);if(p.d>0)return "Starts in "+p.d+"d "+p.h+"h";if(p.h>0)return "Starts in "+p.h+"h "+p.m+"m";if(p.m>0)return "Starts in "+pad(p.m)+":"+pad(p.s);return (ms-Date.now()>0)?"Starts in "+p.s+"s":"Happening now";}
-  function dateBadge(ms){var ds=new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});var ts=new Date(now).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});if(ds===ts)return '<span class="d">Today</span>';var p=ds.split(" ");return p[1].toUpperCase()+'<span class="d">'+p[0]+'</span>';}
+  function mini(ms){if(!(ms>0))return "Date to be announced";var p=parts(ms);if(p.d>0)return "Starts in "+p.d+"d "+p.h+"h";if(p.h>0)return "Starts in "+p.h+"h "+p.m+"m";if(p.m>0)return "Starts in "+pad(p.m)+":"+pad(p.s);return (ms-Date.now()>0)?"Starts in "+p.s+"s":"Happening now";}
+  function dateBadge(ms){if(!(ms>0))return '<span class="d">TBA</span>';var ds=new Date(ms).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});var ts=new Date(now).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:TZ});if(ds===ts)return '<span class="d">Today</span>';var p=ds.split(" ");return p[1].toUpperCase()+'<span class="d">'+p[0]+'</span>';}
   function blurbOf(e){return e.blurb||e.lead||"";}
+  // Feature the soonest DATED event; undated ones sort to the end of the carousel.
+  EVENTS.sort(function(a,b){var da=a.start>0,db=b.start>0;if(da!==db)return da?-1:1;return a.start-b.start;});
   var FEAT=EVENTS[0], CARO=EVENTS.slice(1);
   function cardHTML(e){
     return '<article class="card" data-perma="'+esc(e.permalink)+'" tabindex="0" role="link" aria-label="Open '+esc(e.t)+'">'+
@@ -704,10 +767,10 @@ define( 'AOSEV_HOME_JS', <<<'AOSEV_HOME_JS_END'
     return '<article class="feature card" data-perma="'+esc(FEAT.permalink)+'" tabindex="0" role="link" aria-label="Open '+esc(FEAT.t)+'">'+
       '<div class="feat-media"><img src="'+esc(FEAT.img)+'" alt="" onerror="this.style.display=\'none\'"><span class="scrim"></span>'+
         '<span class="date">'+dateBadge(FEAT.start)+'</span><span class="mode '+esc(FEAT.m)+'">'+esc(FEAT.mode)+'</span></div>'+
-      '<div class="feat-body"><span class="nu-live"><i></i> Next event &middot; starts in</span>'+
-        '<h3>'+esc(FEAT.t)+'</h3><div class="feat-when">'+fullWhen(FEAT.start)+'</div>'+
+      '<div class="feat-body"><span class="nu-live"><i></i> Next event'+(FEAT.start>0?' &middot; starts in':'')+'</span>'+
+        '<h3>'+esc(FEAT.t)+'</h3><div class="feat-when">'+(FEAT.start>0?fullWhen(FEAT.start):'Date &amp; time to be announced')+'</div>'+
         '<p class="cdesc">'+esc(blurbOf(FEAT))+'</p>'+
-        '<div class="lvclk">'+["D","H","M","S"].map(function(k,i){return '<div class="lvt"><span class="bar" data-bar="'+k+'"></span><b data-clk="'+k+'">00</b><i>'+["days","hrs","min","sec"][i]+'</i></div>';}).join("")+'</div>'+
+        (FEAT.start>0?'<div class="lvclk">'+["D","H","M","S"].map(function(k,i){return '<div class="lvt"><span class="bar" data-bar="'+k+'"></span><b data-clk="'+k+'">00</b><i>'+["days","hrs","min","sec"][i]+'</i></div>';}).join("")+'</div>':'')+
         '<div class="foot"><span class="pill">'+esc(FEAT.cat)+'</span><span class="more">View event <i>&#8594;</i></span></div></div></article>';
   }
   function render(){
@@ -725,7 +788,7 @@ define( 'AOSEV_HOME_JS', <<<'AOSEV_HOME_JS_END'
     tick();
   }
   function tick(){
-    if(!FEAT)return;
+    if(!FEAT||!(FEAT.start>0))return;
     var p=parts(FEAT.start), fr={D:Math.min(p.d/30,1),H:p.h/24,M:p.m/60,S:p.s/60}, v={D:p.d,H:p.h,M:p.m,S:p.s};
     ["D","H","M","S"].forEach(function(k){var b=root.querySelector('[data-clk="'+k+'"]');if(b)b.textContent=pad(v[k]);var bar=root.querySelector('[data-bar="'+k+'"]');if(bar)bar.style.height=(fr[k]*100).toFixed(1)+"%";});
     var ms=root.querySelectorAll('[data-cd]');for(var i=0;i<ms.length;i++){var t=parseInt(ms[i].getAttribute('data-cd'),10);var sp=ms[i].querySelector('span');if(sp)sp.textContent=mini(t);if((t-Date.now())<D)ms[i].classList.add('soon');}
@@ -886,22 +949,29 @@ function aosev_ensure_elementor_support() {
 	}
 }
 
-/* ---- 2. DETAILS META BOX ---- */
+/* ---- 2. DETAILS META BOXES ---- */
+/* Two boxes, so the essentials are impossible to miss:
+   - "Event schedule" in the SIDE column (right next to Publish): start, end, mode.
+   - "Event details" below the editor, organised into clearly-labelled groups. */
 add_action( 'add_meta_boxes', aosev_guard( 'aosev_add_box' ) );
-function aosev_add_box() { add_meta_box( 'aosev_details', __( 'Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high' ); }
+function aosev_add_box() {
+	add_meta_box( 'aosev_schedule', __( '📅 Event schedule', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_details', __( 'Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+}
 function aosev_fields() {
 	return array(
-		'start'    => array( 'datetime-local', __( 'Start date and time', 'aosars-events' ) ),
-		'end'      => array( 'datetime-local', __( 'End date and time', 'aosars-events' ) ),
-		'mode'     => array( 'select', __( 'Mode', 'aosars-events' ), array( 'Online', 'In-person', 'Hybrid' ) ),
-		'icon'     => array( 'text', __( 'Icon emoji (optional, e.g. a magnifier)', 'aosars-events' ) ),
-		'venue'    => array( 'text', __( 'Venue / platform (e.g. Google Meet)', 'aosars-events' ) ),
+		'start'    => array( 'datetime-local', __( 'Start date & time', 'aosars-events' ) ),
+		'end'      => array( 'datetime-local', __( 'End date & time', 'aosars-events' ) ),
+		'mode'     => array( 'select', __( 'Format', 'aosars-events' ), array( 'Online', 'In-person', 'Hybrid' ) ),
+		'venue'    => array( 'text', __( 'Venue / platform (e.g. Google Meet, AOSARS Hall)', 'aosars-events' ) ),
 		'address'  => array( 'text', __( 'Address / joining note', 'aosars-events' ) ),
-		'code'     => array( 'text', __( 'Meeting code (e.g. abc-defg-hij)', 'aosars-events' ) ),
+		'code'     => array( 'text', __( 'Google Meet code (e.g. abc-defg-hij) — shows the Join button', 'aosars-events' ) ),
+		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
+		'organiser' => array( 'text', __( 'Organiser (blank = AOSARS)', 'aosars-events' ) ),
 		'fee'      => array( 'text', __( 'Fee (e.g. KES 2,500 or Free)', 'aosars-events' ) ),
 		'capacity' => array( 'number', __( 'Capacity (blank = unlimited)', 'aosars-events' ) ),
 		'taken'    => array( 'number', __( 'Spots taken', 'aosars-events' ) ),
-		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
+		'icon'     => array( 'text', __( 'Icon emoji (optional)', 'aosars-events' ) ),
 		'summary'  => array( 'textarea', __( 'Card blurb (short text shown on the events grid)', 'aosars-events' ) ),
 		'lead'     => array( 'html', __( 'Lead paragraph (shown under “About this event”; HTML allowed)', 'aosars-events' ) ),
 		'covers'   => array( 'lines', __( "What you'll cover — one point per line (leave blank to hide the section)", 'aosars-events' ) ),
@@ -914,40 +984,80 @@ function aosev_fields() {
 	// Anything richer than these fields is authored in the WordPress editor / Elementor
 	// (the event body) and renders inside the single-page “About this event” area.
 }
-function aosev_box_html( $post ) {
-	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
-	echo '<style>.aosev-mb label{display:block;font-weight:600;margin:12px 0 4px}.aosev-mb input,.aosev-mb select,.aosev-mb textarea{width:100%;max-width:560px}.aosev-mb textarea{min-height:88px}</style><div class="aosev-mb">';
-	foreach ( aosev_fields() as $k => $def ) {
-		$t = $def[0]; $v = get_post_meta( $post->ID, '_aosev_' . $k, true );
-		if ( 'checkbox' === $t ) {
-			echo '<label style="display:block;margin:14px 0 4px;font-weight:600"><input type="checkbox" value="1" id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" ' . checked( $v, '1', false ) . '> ' . esc_html( $def[1] ) . '</label>';
-			continue;
-		}
-		echo '<label for="aosev_' . esc_attr( $k ) . '">' . esc_html( $def[1] ) . '</label>';
-		if ( 'select' === $t ) {
-			echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '"><option value="">' . esc_html__( 'Select', 'aosars-events' ) . '</option>';
-			foreach ( $def[2] as $o ) { echo '<option value="' . esc_attr( $o ) . '" ' . selected( $v, $o, false ) . '>' . esc_html( $o ) . '</option>'; }
-			echo '</select>';
-		} elseif ( 'html' === $t ) {
-			// Rich text: a compact visual editor whose output is filtered through wp_kses_post on save.
-			if ( function_exists( 'wp_editor' ) ) {
-				wp_editor( $v, 'aosev_' . $k, array(
-					'textarea_name' => 'aosev_' . $k,
-					'media_buttons' => false,
-					'teeny'         => true,
-					'textarea_rows' => 4,
-					'quicktags'     => true,
-				) );
-			} else {
-				echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
-			}
-		} elseif ( 'code' === $t ) {
-			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" rows="8" spellcheck="false" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:170px;white-space:pre">' . esc_textarea( $v ) . '</textarea>';
-		} elseif ( 'textarea' === $t || 'lines' === $t ) {
-			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
+/* Which fields live in the side "Event schedule" box (everything else renders in the main box). */
+function aosev_schedule_keys() { return array( 'start', 'end', 'mode' ); }
+/* Groups for the main box — heading => field keys. Discoverability beats a flat 19-field list. */
+function aosev_field_groups() {
+	return array(
+		__( '📍 Venue & joining', 'aosars-events' )      => array( 'venue', 'address', 'code', 'url' ),
+		__( '🎟 Tickets & organiser', 'aosars-events' )  => array( 'organiser', 'fee', 'capacity', 'taken' ),
+		__( '🃏 Event card (grid)', 'aosars-events' )    => array( 'icon', 'summary' ),
+		__( '📄 Single-page sections (blank = hidden)', 'aosars-events' ) => array( 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html' ),
+		__( '⚙ Display', 'aosars-events' )               => array( 'use_builder' ),
+	);
+}
+function aosev_field_html( $k, $def, $v ) {
+	$t = $def[0];
+	if ( 'checkbox' === $t ) {
+		echo '<label style="display:block;margin:8px 0 4px;font-weight:600"><input type="checkbox" value="1" id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" ' . checked( $v, '1', false ) . '> ' . esc_html( $def[1] ) . '</label>';
+		return;
+	}
+	echo '<label for="aosev_' . esc_attr( $k ) . '">' . esc_html( $def[1] ) . '</label>';
+	if ( 'select' === $t ) {
+		echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '"><option value="">' . esc_html__( 'Select', 'aosars-events' ) . '</option>';
+		foreach ( $def[2] as $o ) { echo '<option value="' . esc_attr( $o ) . '" ' . selected( $v, $o, false ) . '>' . esc_html( $o ) . '</option>'; }
+		echo '</select>';
+	} elseif ( 'html' === $t ) {
+		// Rich text: a compact visual editor whose output is filtered through wp_kses_post on save.
+		if ( function_exists( 'wp_editor' ) ) {
+			wp_editor( $v, 'aosev_' . $k, array(
+				'textarea_name' => 'aosev_' . $k,
+				'media_buttons' => false,
+				'teeny'         => true,
+				'textarea_rows' => 4,
+				'quicktags'     => true,
+			) );
 		} else {
-			echo '<input type="' . esc_attr( $t ) . '" id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" value="' . esc_attr( $v ) . '">';
+			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 		}
+	} elseif ( 'code' === $t ) {
+		echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" rows="8" spellcheck="false" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:170px;white-space:pre">' . esc_textarea( $v ) . '</textarea>';
+	} elseif ( 'textarea' === $t || 'lines' === $t ) {
+		echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
+	} else {
+		echo '<input type="' . esc_attr( $t ) . '" id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" value="' . esc_attr( $v ) . '">';
+	}
+}
+function aosev_schedule_box_html( $post ) {
+	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
+	echo '<style>#aosev_schedule label{display:block;font-weight:600;margin:10px 0 4px}#aosev_schedule input,#aosev_schedule select{width:100%}#aosev_schedule .aosev-hint{font-size:11px;color:#646970;margin:6px 0 0}</style>';
+	$fields = aosev_fields();
+	foreach ( aosev_schedule_keys() as $k ) {
+		aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
+	}
+	echo '<p class="aosev-hint">' . esc_html__( 'Without a start date the event shows "To be announced" and no countdown.', 'aosars-events' ) . '</p>';
+}
+function aosev_box_html( $post ) {
+	// Nonce is printed by the schedule box; both boxes submit in the same request.
+	echo '<style>.aosev-mb label{display:block;font-weight:600;margin:10px 0 4px}.aosev-mb input,.aosev-mb select,.aosev-mb textarea{width:100%;max-width:640px}.aosev-mb textarea{min-height:88px}
+	.aosev-mb .aosev-grp{margin:0 0 6px;padding:12px 14px;border:1px solid #e2e4e7;border-radius:8px;background:#fafafa}
+	.aosev-mb .aosev-grp>h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:#1d2327}
+	.aosev-mb .aosev-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
+	$fields = aosev_fields();
+	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder' );
+	foreach ( aosev_field_groups() as $heading => $keys ) {
+		echo '<div class="aosev-grp"><h3>' . esc_html( $heading ) . '</h3>';
+		$cols = array_diff( $keys, $wide );
+		if ( $cols ) {
+			echo '<div class="aosev-cols">';
+			foreach ( $cols as $k ) { echo '<div>'; aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) ); echo '</div>'; }
+			echo '</div>';
+		}
+		foreach ( array_intersect( $keys, $wide ) as $k ) {
+			aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
+		}
+		echo '</div>';
 	}
 	echo '</div>';
 }
@@ -1040,6 +1150,8 @@ function aosev_json_events( $limit = 200 ) {
 			'facilName' => $g( 'facil_name' ),
 			'facilBio'  => aosev_rich( $g( 'facil_bio' ) ),
 			'customHtml' => (string) $g( 'custom_html' ),
+			'org' => $g( 'organiser' ) ? $g( 'organiser' ) : 'AOSARS',
+			'pub' => isset( $p->post_date_gmt ) && $p->post_date_gmt ? strtotime( $p->post_date_gmt . ' UTC' ) * 1000 : 0,
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}
