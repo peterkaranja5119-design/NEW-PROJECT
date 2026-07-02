@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.6.0
+Stable tag: 5.7.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,14 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.7.0 =
+* Timezone-aware scheduling: a Timezone selector in the 📅 Event schedule box (EAT, WAT, CAT, SAST, GMT, UTC — default EAT). Times you type are now interpreted in that zone; previously they were read as UTC, so every event displayed 3 hours late. Events saved before this update are reinterpreted as EAT, which corrects them.
+* Online platform & join link: choose Google Meet / Zoom / Microsoft Teams / Webex / YouTube Live / Other and paste the full join URL (a Google Meet code still auto-builds the link). The page renders "Join on Zoom" (etc.) dynamically. A per-event "hide the join link" option shows "The joining link is sent on registration" instead of the URL.
+* Entry hardening: the save nonce is printed in both meta boxes (saving no longer depends on one box being visible), and an inline non-blocking warning appears when End is not after Start.
+* Single page: the "← All events / Events › …" strip is removed from the top — the page opens straight onto the hero; a compact "← All events" link now lives in the Event details panel header and points at the configured events page.
+* "More events" now uses compact line rows (small thumbnail · title · date · arrow) instead of full cards — about 60% less space.
+* Spacing fix: empty paragraphs produced by auto-formatting around pasted HTML are stripped (server-side and CSS), and the first heading inside authored content no longer adds a large gap under "About this event".
 
 = 5.6.0 =
 * Data entry overhauled for discoverability. A new "📅 Event schedule" box sits in the side column right next to Publish (start, end, format) — impossible to miss — and the main "Event details" box is organised into labelled groups (Venue & joining, Tickets & organiser, Event card, Single-page sections, Display) in a two-column layout instead of one flat 19-field list.

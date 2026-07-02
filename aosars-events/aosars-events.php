@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.6.0
+ * Version:           5.7.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.6.0' );
+define( 'AOSEV_VER', '5.7.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -317,6 +317,20 @@ define( 'AOSEV_CSS', <<<'AOSEV_CSS_END'
 .aosev-app .filters .f label{display:block;font-size:11.5px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--ink-faint);margin:0 0 5px;}
 .aosev-app .filters input[type="search"]{width:100%;height:44px;border:1px solid var(--rule);border-radius:10px;padding:0 13px;font-size:14px;font-family:inherit;font-weight:600;color:var(--ink);background:#fff;outline:none;transition:.15s;-webkit-appearance:none;}
 .aosev-app .filters input[type="search"]:focus{border-color:var(--cyan);box-shadow:0 0 0 3px rgba(0,174,254,.16);}
+.aosev-app /* compact "More events" rows */
+  .mrow{display:flex;gap:12px;align-items:center;background:#fff;border:1px solid var(--rule-soft);border-radius:12px;padding:9px 12px;min-height:48px;cursor:pointer;transition:.15s;}
+.aosev-app .mrow:hover,.aosev-app .mrow:focus-within{border-color:var(--cyan);box-shadow:var(--shadow-sm);}
+.aosev-app .mrow-img{width:56px;height:42px;object-fit:cover;border-radius:8px;flex:none;background:linear-gradient(135deg,var(--indigo-tint),var(--tint));display:block;}
+.aosev-app .mrow-b{min-width:0;flex:1;}
+.aosev-app .mrow-b b{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-size:13.5px;font-weight:800;color:var(--indigo);line-height:1.25;}
+.aosev-app .mrow-d{display:block;font-size:12px;color:var(--ink-faint);margin-top:2px;font-variant-numeric:tabular-nums;}
+.aosev-app .mrow i{margin-left:auto;flex:none;font-style:normal;color:var(--cyan);font-size:16px;font-weight:800;transition:transform .2s;}
+.aosev-app .mrow:hover i{transform:translateX(4px);}
+.aosev-app /* authored-HTML spacing: kill blank paragraphs and first-heading gaps */
+  .rich p:empty,.aosev-app .aosev-chtml p:empty{display:none;}
+.aosev-app .rich>h1:first-child,.aosev-app .rich>h2:first-child,.aosev-app .rich>h3:first-child,.aosev-app .rich>h4:first-child{margin-top:0;}
+.aosev-app .aosev-chtml>*:first-child{margin-top:0;}
+.aosev-app .rich h1,.aosev-app .rich h2,.aosev-app .rich h3,.aosev-app .rich h4{margin-top:14px;margin-bottom:8px;color:var(--indigo);}
 AOSEV_CSS_END
 );
 define( 'AOSEV_JS', <<<'AOSEV_JS_END'
@@ -329,6 +343,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
   var EVENTS=(window.AOSEV_DATA&&window.AOSEV_DATA.events)||[];
   var byId={}; EVENTS.forEach(function(e){byId[e.id]=e;});
   var MEETS=(window.AOSEV_DATA&&window.AOSEV_DATA.meets)||{};
+  var ALLURL=(window.AOSEV_DATA&&window.AOSEV_DATA.allUrl)||"";
   var MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
   var MON3=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   var WD=["Mo","Tu","We","Th","Fr","Sa","Su"];
@@ -509,12 +524,18 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     var e=byId[id];
     if(!e){return '<div class="empty-state">This event could not be found. <b data-act="all-events" style="color:var(--indigo);cursor:pointer">Back to all events</b></div>';}
     var others=soonest().filter(function(x){return x.id!==id;}).slice(0,3);
-    var meet=MEETS[e.id]||"";
     var mode=e.mode||"Online";
     var isPerson=(mode==="In-person"), isHybrid=(mode==="Hybrid"), isOnline=!isPerson&&!isHybrid;
-    var hasMeet=!!meet&&(isOnline||isHybrid);
+    var platform=e.platform||"Google Meet";
+    var joinUrl=(e.joinUrl||"")&&(isOnline||isHybrid)?e.joinUrl:"";
+    var hasJoin=!!joinUrl&&!e.linkPrivate;
     var platformLabel=isPerson?"Location":"Platform";
-    var rel=others.map(function(o){return cardHTML(o);}).join("");
+    var rel=others.map(function(o){
+      var when=dated(o)?(new Date(o.start).toLocaleDateString("en-GB",{day:"numeric",month:"short",timeZone:tz})+" · "+timeOnly(o.start)):"Date to be announced";
+      return '<a class="mrow" data-act="view-event" data-id="'+o.id+'" tabindex="0">'+
+        (o.img?'<img class="mrow-img" src="'+o.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'">':'<span class="mrow-img"></span>')+
+        '<span class="mrow-b"><b>'+esc(o.t)+'</b><span class="mrow-d">'+when+'</span></span><i>&#8594;</i></a>';
+    }).join("");
 
     /* ----- main-column sections; each is OMITTED when the event has no data for it ----- */
     var secs="";
@@ -524,17 +545,20 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     if(about){ secs+='<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+about+'</div></div>'; }
 
     var joinInner="";
-    if(hasMeet){
-      joinInner+='<p class="meet-sub">This session runs live online on Google Meet. The joining link is posted right here, so you can save it now.</p>'+
-        '<div class="meet-link"><span class="meet-ic">&#128249;</span><span class="meet-url">meet.google.com/'+esc(meet)+'</span><button class="meet-copy" data-act="copy-meet" data-link="https://meet.google.com/'+esc(meet)+'">Copy link</button></div>'+
-        '<div class="meet-actions"><a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a></div>';
+    var joinDisplay=joinUrl.replace(/^https?:\/\//,"");
+    if(hasJoin){
+      joinInner+='<p class="meet-sub">This session runs live online on '+esc(platform)+'. The joining link is posted right here, so you can save it now.</p>'+
+        '<div class="meet-link"><span class="meet-ic">&#128249;</span><span class="meet-url">'+esc(joinDisplay)+'</span><button class="meet-copy" data-act="copy-meet" data-link="'+esc(joinUrl)+'">Copy link</button></div>'+
+        '<div class="meet-actions"><a class="btn primary" href="'+esc(joinUrl)+'" target="_blank" rel="noopener">&#128249; Join on '+esc(platform)+'</a></div>';
+    }else if((isOnline||isHybrid)&&e.linkPrivate){
+      joinInner+='<p class="meet-sub">This session runs live online on '+esc(platform)+'. The joining link is sent on registration.</p>';
     }
     if(isPerson||isHybrid){
       var loc=esc(e.venue||"")+(e.addr?((e.venue?' &middot; ':'')+esc(e.addr)):"");
-      if(loc){ joinInner+='<div class="meet-link"'+(hasMeet?' style="margin-top:12px"':'')+'><span class="meet-ic">&#128205;</span><span class="meet-url" style="white-space:normal">'+loc+'</span></div>'; }
+      if(loc){ joinInner+='<div class="meet-link"'+(joinInner?' style="margin-top:12px"':'')+'><span class="meet-ic">&#128205;</span><span class="meet-url" style="white-space:normal">'+loc+'</span></div>'; }
     }
     if(joinInner){
-      var joinHead=isPerson?"Where to find us":(isHybrid?"How to join":"Join on Google Meet");
+      var joinHead=isPerson?"Where to find us":(isHybrid?"How to join":"Join on "+platform);
       secs+='<div class="sec"><span class="sec-eyebrow">How to join</span><h2>'+esc(joinHead)+'</h2>'+joinInner+'</div>';
     }
 
@@ -549,21 +573,20 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
       secs+='<div class="sec"><span class="sec-eyebrow">Your facilitator</span><h2>'+esc(e.facilName?("Led by "+e.facilName):"Your facilitator")+'</h2><div class="facil"><div class="facil-av">'+esc(av)+'</div><div class="facil-b">'+(e.facilName?'<div class="facil-n">'+esc(e.facilName)+'</div>':'')+'<div class="facil-d rich">'+(e.facilBio||"")+'</div></div></div></div>';
     }
 
-    var joinBtn=hasMeet?'<a class="btn primary" href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">&#128249; Join the meeting</a>':'';
-    var facts='<div class="panel"><h3>Event details</h3><div class="facts">'+
+    var joinBtn=hasJoin?'<a class="btn primary" href="'+esc(joinUrl)+'" target="_blank" rel="noopener">&#128249; Join on '+esc(platform)+'</a>':'';
+    var facts='<div class="panel"><h3>Event details <a data-act="all-events">&#8592; All events</a></h3><div class="facts">'+
       '<div class="fact"><span class="fi">&#128197;</span><div><div class="fk">Date &amp; time</div><div class="fv" id="sFacts">'+fullDate(e)+'</div></div></div>'+
       '<div class="fact"><span class="fi">&#128421;</span><div><div class="fk">Format</div><div class="fv">'+esc(e.mode)+'</div></div></div>'+
-      '<div class="fact"><span class="fi">&#128249;</span><div><div class="fk">'+platformLabel+'</div><div class="fv">'+esc(e.venue)+(e.addr&&isPerson?'<br><span style="font-weight:400">'+esc(e.addr)+'</span>':'')+'</div></div></div>'+
-      (hasMeet?'<div class="fact"><span class="fi">&#128279;</span><div><div class="fk">Join link</div><div class="fv"><a href="https://meet.google.com/'+esc(meet)+'" target="_blank" rel="noopener">meet.google.com/'+esc(meet)+'</a></div></div></div>':'')+
+      '<div class="fact"><span class="fi">&#128249;</span><div><div class="fk">'+platformLabel+'</div><div class="fv">'+esc(isPerson?e.venue:(e.venue&&e.venue!=="Google Meet"?e.venue:platform))+(e.addr&&isPerson?'<br><span style="font-weight:400">'+esc(e.addr)+'</span>':'')+'</div></div></div>'+
+      (hasJoin?'<div class="fact"><span class="fi">&#128279;</span><div><div class="fk">Join link</div><div class="fv"><a href="'+esc(joinUrl)+'" target="_blank" rel="noopener">'+esc(joinDisplay)+'</a></div></div></div>':'')+
       '<div class="fact"><span class="fi">&#127891;</span><div><div class="fk">Organiser</div><div class="fv">'+esc(e.org||"AOSARS")+'</div></div></div>'+
       '<div class="fact"><span class="fi">&#128176;</span><div><div class="fk">Fee</div><div class="fv">'+esc(e.fee)+'</div></div></div></div>'+
-      '<div class="calbtns">'+joinBtn+'<a class="btn'+(hasMeet?'':' primary')+'" data-act="ics" data-id="'+e.id+'">&#11015; Add to calendar (.ics)</a><a class="btn" id="gcal" target="_blank" rel="noopener">&#128197; Google Calendar</a></div></div>';
+      '<div class="calbtns">'+joinBtn+'<a class="btn'+(hasJoin?'':' primary')+'" data-act="ics" data-id="'+e.id+'">&#11015; Add to calendar (.ics)</a><a class="btn" id="gcal" target="_blank" rel="noopener">&#128197; Google Calendar</a></div></div>';
     var relBlock='<div class="moreevents"><div class="moreevents-h">More events <a data-act="all-events">View all &#8594;</a></div>'+rel+'</div>';
     var chromeTop=''+
-      '<div class="topline"><button class="back" data-act="all-events">&#8592; All events</button><div class="crumb"><a data-act="all-events">Events</a> &nbsp;&rsaquo;&nbsp; <b>'+esc(e.t)+'</b></div></div>'+
       '<header class="shead"><div class="ab-post-meta-block"><span class="ab-eyebrow">'+esc(e.cat)+'</span>'+
       '<div class="ab-post-meta"><span>'+esc(e.mode)+'</span><span class="ab-dot"></span>'+
-      '<span>'+new Date(e.start).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:tz})+'</span><span class="ab-dot"></span>'+
+      '<span>'+(dated(e)?new Date(e.start).toLocaleDateString("en-GB",{weekday:"short",day:"numeric",month:"long",timeZone:tz}):"Date TBA")+'</span><span class="ab-dot"></span>'+
       '<span>'+e.durH+' hour'+(e.durH>1?'s':'')+'</span></div></div>'+
       '<h1 tabindex="-1" id="focusH">'+esc(e.t)+'</h1></header>'+
       (e.img?'<div class="bframe"><img class="bphoto" src="'+e.img+'" alt="" loading="lazy" onerror="this.style.display=\'none\'"></div>':'')+
@@ -606,7 +629,7 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
     var a=el.dataset.act;
     if(a==="view-event"){var _id=parseInt(el.dataset.id,10),_e=byId[_id];
       if(_e&&_e.permalink){ev.preventDefault();location.href=_e.permalink;}else{go("single",_id);}}
-    else if(a==="all-events"){go("portal");}
+    else if(a==="all-events"){if(state.view==="single"&&ALLURL){location.href=ALLURL;}else{go("portal");}}
     else if(a==="dismiss"){var t=el.closest(".ticker");if(t)t.style.display="none";}
     else if(a==="grid"){gridMode="grid";renderApp();}
     else if(a==="list"){gridMode="list";renderApp();}
@@ -958,14 +981,29 @@ function aosev_add_box() {
 	add_meta_box( 'aosev_schedule', __( '📅 Event schedule', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_details', __( 'Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 }
+/* Curated per-event timezones — matches the viewer timezone bar on the front end. */
+function aosev_timezones() {
+	return array(
+		'Africa/Nairobi'      => 'EAT — East Africa Time (Nairobi)',
+		'Africa/Lagos'        => 'WAT — West Africa Time (Lagos)',
+		'Africa/Maputo'       => 'CAT — Central Africa Time (Maputo)',
+		'Africa/Johannesburg' => 'SAST — South Africa Time (Johannesburg)',
+		'Africa/Accra'        => 'GMT — Greenwich Mean Time (Accra)',
+		'UTC'                 => 'UTC — Coordinated Universal Time',
+	);
+}
 function aosev_fields() {
 	return array(
 		'start'    => array( 'datetime-local', __( 'Start date & time', 'aosars-events' ) ),
 		'end'      => array( 'datetime-local', __( 'End date & time', 'aosars-events' ) ),
+		'tzone'    => array( 'tzselect', __( 'Timezone — the times above are in this zone', 'aosars-events' ) ),
 		'mode'     => array( 'select', __( 'Format', 'aosars-events' ), array( 'Online', 'In-person', 'Hybrid' ) ),
-		'venue'    => array( 'text', __( 'Venue / platform (e.g. Google Meet, AOSARS Hall)', 'aosars-events' ) ),
+		'venue'    => array( 'text', __( 'Venue (physical place, or leave for online platform)', 'aosars-events' ) ),
 		'address'  => array( 'text', __( 'Address / joining note', 'aosars-events' ) ),
-		'code'     => array( 'text', __( 'Google Meet code (e.g. abc-defg-hij) — shows the Join button', 'aosars-events' ) ),
+		'platform' => array( 'select', __( 'Online platform', 'aosars-events' ), array( 'Google Meet', 'Zoom', 'Microsoft Teams', 'Webex', 'YouTube Live', 'Other' ) ),
+		'join_url' => array( 'url', __( 'Join link — full URL (e.g. https://zoom.us/j/123…)', 'aosars-events' ) ),
+		'code'     => array( 'text', __( '…or a Google Meet code (abc-defg-hij) — the link is built for you', 'aosars-events' ) ),
+		'link_private' => array( 'checkbox', __( 'Hide the join link on the page (shows “The joining link is sent on registration” instead)', 'aosars-events' ) ),
 		'url'      => array( 'url', __( 'Registration link', 'aosars-events' ) ),
 		'organiser' => array( 'text', __( 'Organiser (blank = AOSARS)', 'aosars-events' ) ),
 		'fee'      => array( 'text', __( 'Fee (e.g. KES 2,500 or Free)', 'aosars-events' ) ),
@@ -985,11 +1023,11 @@ function aosev_fields() {
 	// (the event body) and renders inside the single-page “About this event” area.
 }
 /* Which fields live in the side "Event schedule" box (everything else renders in the main box). */
-function aosev_schedule_keys() { return array( 'start', 'end', 'mode' ); }
+function aosev_schedule_keys() { return array( 'start', 'end', 'tzone', 'mode' ); }
 /* Groups for the main box — heading => field keys. Discoverability beats a flat 19-field list. */
 function aosev_field_groups() {
 	return array(
-		__( '📍 Venue & joining', 'aosars-events' )      => array( 'venue', 'address', 'code', 'url' ),
+		__( '📍 Venue & joining', 'aosars-events' )      => array( 'venue', 'address', 'platform', 'join_url', 'code', 'url', 'link_private' ),
 		__( '🎟 Tickets & organiser', 'aosars-events' )  => array( 'organiser', 'fee', 'capacity', 'taken' ),
 		__( '🃏 Event card (grid)', 'aosars-events' )    => array( 'icon', 'summary' ),
 		__( '📄 Single-page sections (blank = hidden)', 'aosars-events' ) => array( 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html' ),
@@ -1006,6 +1044,12 @@ function aosev_field_html( $k, $def, $v ) {
 	if ( 'select' === $t ) {
 		echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '"><option value="">' . esc_html__( 'Select', 'aosars-events' ) . '</option>';
 		foreach ( $def[2] as $o ) { echo '<option value="' . esc_attr( $o ) . '" ' . selected( $v, $o, false ) . '>' . esc_html( $o ) . '</option>'; }
+		echo '</select>';
+	} elseif ( 'tzselect' === $t ) {
+		// Default to EAT when unset — matches how legacy times are interpreted.
+		$cur = $v ? $v : 'Africa/Nairobi';
+		echo '<select id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">';
+		foreach ( aosev_timezones() as $zval => $zlabel ) { echo '<option value="' . esc_attr( $zval ) . '" ' . selected( $cur, $zval, false ) . '>' . esc_html( $zlabel ) . '</option>'; }
 		echo '</select>';
 	} elseif ( 'html' === $t ) {
 		// Rich text: a compact visual editor whose output is filtered through wp_kses_post on save.
@@ -1035,17 +1079,20 @@ function aosev_schedule_box_html( $post ) {
 	foreach ( aosev_schedule_keys() as $k ) {
 		aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
 	}
-	echo '<p class="aosev-hint">' . esc_html__( 'Without a start date the event shows "To be announced" and no countdown.', 'aosars-events' ) . '</p>';
+	echo '<p id="aosev-endwarn" style="display:none;color:#b32d2e;font-weight:600;margin:8px 0 0">' . esc_html__( 'End is not after start — the page will assume a 2-hour duration.', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-hint">' . esc_html__( 'Times you enter are in the selected timezone. Without a start date the event shows "To be announced" and no countdown.', 'aosars-events' ) . '</p>';
+	echo '<script>(function(){var s=document.getElementById("aosev_start"),e=document.getElementById("aosev_end"),w=document.getElementById("aosev-endwarn");function c(){if(s&&e&&w){w.style.display=(s.value&&e.value&&e.value<=s.value)?"block":"none";}}if(s&&e){s.addEventListener("change",c);e.addEventListener("change",c);c();}})();</script>';
 }
 function aosev_box_html( $post ) {
-	// Nonce is printed by the schedule box; both boxes submit in the same request.
+	// Nonce printed in BOTH boxes: saving must not depend on one box being visible.
+	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
 	echo '<style>.aosev-mb label{display:block;font-weight:600;margin:10px 0 4px}.aosev-mb input,.aosev-mb select,.aosev-mb textarea{width:100%;max-width:640px}.aosev-mb textarea{min-height:88px}
 	.aosev-mb .aosev-grp{margin:0 0 6px;padding:12px 14px;border:1px solid #e2e4e7;border-radius:8px;background:#fafafa}
 	.aosev-mb .aosev-grp>h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:#1d2327}
 	.aosev-mb .aosev-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
 	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
 	$fields = aosev_fields();
-	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder' );
+	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder', 'link_private' );
 	foreach ( aosev_field_groups() as $heading => $keys ) {
 		echo '<div class="aosev-grp"><h3>' . esc_html( $heading ) . '</h3>';
 		$cols = array_diff( $keys, $wide );
@@ -1072,6 +1119,7 @@ function aosev_save( $post_id, $post ) {
 		if ( ! isset( $_POST[ $name ] ) ) { continue; }
 		$raw = wp_unslash( $_POST[ $name ] );
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
+		elseif ( 'tzselect' === $def[0] ) { $val = array_key_exists( $raw, aosev_timezones() ) ? $raw : ''; }
 		elseif ( 'code' === $def[0] ) { $val = current_user_can( 'unfiltered_html' ) ? $raw : wp_kses_post( $raw ); } // raw HTML for capable users, like the Custom HTML block
 		elseif ( 'html' === $def[0] ) { $val = wp_kses_post( $raw ); }
 		elseif ( 'lines' === $def[0] ) { $val = wp_kses_post( $raw ); } // one item per line; inline HTML allowed
@@ -1086,17 +1134,36 @@ function aosev_save( $post_id, $post ) {
 /* Render the event's own authored content (editor / blocks / shortcodes) as the
    single-page body. Deliberately NOT the_content, to avoid re-entrancy with our
    own the_content filter while an event is being queried. */
+/* Remove the empty paragraphs wpautop leaves around block-level HTML — they render as
+   large blank gaps under "About this event" when authors paste their own markup. */
+function aosev_strip_empty_p( $html ) {
+	return preg_replace( '#<p>(\s|&nbsp;|<br\s*/?>)*</p>#i', '', (string) $html );
+}
 function aosev_body_html( $post ) {
 	$c = isset( $post->post_content ) ? trim( (string) $post->post_content ) : '';
 	if ( '' === $c ) { return ''; }
 	if ( function_exists( 'do_blocks' ) ) { $c = do_blocks( $c ); }
-	return do_shortcode( wpautop( $c ) );
+	return aosev_strip_empty_p( do_shortcode( wpautop( $c ) ) );
 }
 /* Safe, display-ready HTML for a stored rich field (bold/links/lists via wp_kses_post). */
 function aosev_rich( $v ) {
 	$v = (string) $v;
 	if ( '' === $v ) { return ''; }
-	return wpautop( wp_kses_post( $v ) );
+	return aosev_strip_empty_p( wpautop( wp_kses_post( $v ) ) );
+}
+/* Timezone-aware timestamp: the entered wall-clock time is interpreted in the event's
+   own timezone. Events saved before timezone support default to EAT (Africa/Nairobi) —
+   this CORRECTS legacy events, which were previously read as UTC and shown 3h late. */
+function aosev_ts( $s, $tz ) {
+	$s = trim( (string) $s );
+	if ( '' === $s ) { return 0; }
+	try {
+		$d = new DateTime( $s, new DateTimeZone( $tz ? $tz : 'Africa/Nairobi' ) );
+		return $d->getTimestamp();
+	} catch ( \Throwable $e ) {
+		$t = strtotime( $s );
+		return $t ? $t : 0;
+	}
 }
 /* One trimmed, non-empty item per line (inline HTML preserved). */
 function aosev_lines( $s ) {
@@ -1125,8 +1192,9 @@ function aosev_json_events( $limit = 200 ) {
 	foreach ( (array) $q->posts as $p ) {
 		$id = $p->ID;
 		$g  = function ( $k ) use ( $id ) { return get_post_meta( $id, '_aosev_' . $k, true ); };
-		$start = $g( 'start' ) ? strtotime( $g( 'start' ) ) : 0;
-		$end   = $g( 'end' ) ? strtotime( $g( 'end' ) ) : 0;
+		$etz   = $g( 'tzone' );
+		$start = aosev_ts( $g( 'start' ), $etz );
+		$end   = aosev_ts( $g( 'end' ), $etz );
 		$durH  = ( $start && $end && $end > $start ) ? round( ( $end - $start ) / 3600, 2 ) : 2;
 		$mode  = $g( 'mode' ) ? $g( 'mode' ) : 'Online';
 		$m     = ( 'In-person' === $mode ) ? 'm-person' : ( ( 'Hybrid' === $mode ) ? 'm-hybrid' : 'm-virtual' );
@@ -1152,6 +1220,9 @@ function aosev_json_events( $limit = 200 ) {
 			'customHtml' => (string) $g( 'custom_html' ),
 			'org' => $g( 'organiser' ) ? $g( 'organiser' ) : 'AOSARS',
 			'pub' => isset( $p->post_date_gmt ) && $p->post_date_gmt ? strtotime( $p->post_date_gmt . ' UTC' ) * 1000 : 0,
+			'platform'    => $g( 'platform' ) ? $g( 'platform' ) : 'Google Meet',
+			'joinUrl'     => $g( 'join_url' ) ? $g( 'join_url' ) : ( $g( 'code' ) ? 'https://meet.google.com/' . $g( 'code' ) : '' ),
+			'linkPrivate' => (bool) $g( 'link_private' ),
 		);
 		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
 	}
@@ -1194,7 +1265,8 @@ function aosev_js() {
 function aosev_mount( $state = null ) {
 	try {
 		list( $events, $meets ) = aosev_json_events();
-		$data = array( 'events' => $events, 'meets' => (object) $meets );
+		$set  = aosev_settings();
+		$data = array( 'events' => $events, 'meets' => (object) $meets, 'allUrl' => isset( $set['all_url'] ) ? $set['all_url'] : '' );
 		if ( $state ) { $data['state'] = $state; }
 		$json = wp_json_encode( $data );
 		$out  = aosev_css();
