@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.8.0
+ * Version:           5.9.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -12,8 +12,19 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
-if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.8.0' );
+if ( defined( 'AOSEV_VER' ) ) {
+	// Another copy of this plugin loaded first (duplicate install, e.g. a folder like
+	// aosars-events-2 left over from repeated zip uploads). Previously this returned
+	// SILENTLY — which made every update look like it did nothing. Now it shouts.
+	if ( function_exists( 'add_action' ) ) {
+		$aosev_dup_dir = basename( dirname( __FILE__ ) );
+		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v5.9.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+		} );
+	}
+	return;
+}
+define( 'AOSEV_VER', '5.9.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -946,6 +957,15 @@ function aosev_activate() {
 		wp_die( esc_html__( 'AOSARS Events requires PHP 7.4 or newer.', 'aosars-events' ), esc_html__( 'Plugin activation blocked', 'aosars-events' ), array( 'back_link' => true ) );
 	}
 	try {
+		// Deactivate any OTHER active copy of this plugin (duplicate folders such as
+		// aosars-events-2 from repeated zip uploads). A duplicate that loads first
+		// silently blocks this copy and makes updates appear to change nothing.
+		if ( function_exists( 'deactivate_plugins' ) && function_exists( 'plugin_basename' ) ) {
+			$me = plugin_basename( __FILE__ );
+			foreach ( (array) get_option( 'active_plugins', array() ) as $ap ) {
+				if ( $ap !== $me && 'aosars-events.php' === basename( (string) $ap ) ) { deactivate_plugins( $ap, true ); }
+			}
+		}
 		aosev_register_cpt();
 		flush_rewrite_rules();
 		// Make events editable with Elementor, like posts/pages.
@@ -992,6 +1012,25 @@ function aosev_no_date_notice() {
 	if ( '' !== trim( (string) get_post_meta( $id, '_aosev_start', true ) ) ) { return; }
 	echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'This event has no start date.', 'aosars-events' ) . '</strong> '
 		. esc_html__( 'Set “Start date & time” in the 📅 Event schedule box (top-right). Until then the event shows “To be announced” with no countdown.', 'aosars-events' ) . '</p></div>';
+}
+/* Deployment integrity: on the events screens, warn loudly if more than one copy of the
+   plugin is active, and show which version/folder is actually running so "did my update
+   land?" is answerable at a glance. */
+add_action( 'admin_notices', aosev_guard( 'aosev_integrity_notice' ) );
+function aosev_integrity_notice() {
+	if ( ! function_exists( 'get_current_screen' ) ) { return; }
+	$sc = get_current_screen();
+	if ( ! $sc || false === strpos( (string) $sc->id, 'aosars_event' ) && false === strpos( (string) $sc->id, 'aosev-settings' ) ) { return; }
+	$copies = array();
+	foreach ( (array) get_option( 'active_plugins', array() ) as $ap ) {
+		if ( 'aosars-events.php' === basename( (string) $ap ) ) { $copies[] = (string) $ap; }
+	}
+	if ( count( $copies ) > 1 ) {
+		echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> ' . esc_html( sprintf( __( '%1$d copies of the plugin are active (%2$s). Only one runs — keep one, delete the rest.', 'aosars-events' ), count( $copies ), implode( ', ', $copies ) ) ) . '</p></div>';
+	}
+	if ( 'edit-aosars_event' === $sc->id || false !== strpos( (string) $sc->id, 'aosev-settings' ) ) {
+		echo '<div class="notice notice-info"><p>' . esc_html( sprintf( __( 'AOSARS Events v%1$s is running from wp-content/plugins/%2$s.', 'aosars-events' ), AOSEV_VER, basename( dirname( __FILE__ ) ) ) ) . '</p></div>';
+	}
 }
 /* Curated per-event timezones — matches the viewer timezone bar on the front end. */
 function aosev_timezones() {
@@ -1330,7 +1369,7 @@ function aosev_mount( $state = null ) {
 		$data = array( 'events' => $events, 'meets' => (object) $meets, 'allUrl' => isset( $set['all_url'] ) ? $set['all_url'] : '' );
 		if ( $state ) { $data['state'] = $state; }
 		$json = wp_json_encode( $data );
-		$out  = aosev_css();
+		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_css();
 		$out .= '<script>window.AOSEV_DATA=' . $json . ';</script>';
 		$out .= '<div class="aosev-app"><main class="wrap" id="AOSEV_ROOT"></main></div>';
 		$out .= aosev_js();
@@ -1365,7 +1404,7 @@ function aosev_home_mount() {
 		list( $events, $meets ) = aosev_json_events();
 		$s    = aosev_settings();
 		$data = array( 'events' => $events, 'allUrl' => isset( $s['all_url'] ) ? $s['all_url'] : '' );
-		$out  = aosev_home_css();
+		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_home_css();
 		$out .= '<script>window.AOSEV_HDATA=' . wp_json_encode( $data ) . ';</script>';
 		$out .= '<div class="aosev-home" id="AOSEV_HOME"></div>';
 		$out .= aosev_home_js();
@@ -1590,7 +1629,24 @@ function aosev_settings_page() {
 	echo '<p><code>[aosars_events_portal]</code> ' . esc_html__( 'or the Elementor "AOSARS Events Portal" widget shows the full portal.', 'aosars-events' ) . '</p>';
 	echo '<p><code>[aosars_event id="123"]</code> ' . esc_html__( 'shows one event. Each event also has its own page.', 'aosars-events' ) . '</p>';
 	echo '<p><code>[aosars_events_home]</code> ' . esc_html__( 'or the Elementor "AOSARS Events Home" widget shows the homepage component (featured next event + carousel).', 'aosars-events' ) . '</p>';
-	echo '<p>' . esc_html__( 'Events are edited like posts and can be opened with Edit with Elementor.', 'aosars-events' ) . '</p></div>';
+	echo '<p>' . esc_html__( 'Events are edited like posts and can be opened with Edit with Elementor.', 'aosars-events' ) . '</p>';
+	// ---- Diagnostics: answers "which code is running and what data does it see?" ----
+	echo '<hr><h2>' . esc_html__( 'Diagnostics', 'aosars-events' ) . '</h2>';
+	echo '<p><code>' . esc_html( 'AOSARS Events v' . AOSEV_VER . ' · wp-content/plugins/' . basename( dirname( __FILE__ ) ) . ' · PHP ' . PHP_VERSION ) . '</code></p>';
+	$probe = aosev_ts( '2026-01-15T14:00', 'Africa/Nairobi' );
+	$ok    = ( $probe === 1768474800 ); // 2026-01-15 11:00 UTC == 14:00 EAT
+	echo '<p>' . esc_html__( 'Time check — “15 Jan 2026, 14:00” entered in EAT converts to epoch ', 'aosars-events' ) . '<code>' . esc_html( (string) $probe ) . '</code>: '
+		. ( $ok ? '<strong style="color:#00a32a">' . esc_html__( 'CORRECT (displays 14:00 EAT on the page)', 'aosars-events' ) . '</strong>' : '<strong style="color:#b32d2e">' . esc_html__( 'WRONG — report this number', 'aosars-events' ) . '</strong>' ) . '</p>';
+	if ( function_exists( 'get_posts' ) ) {
+		$ids = get_posts( array( 'post_type' => 'aosars_event', 'post_status' => 'publish', 'numberposts' => 100, 'fields' => 'ids' ) );
+		$missing = array();
+		foreach ( (array) $ids as $eid ) {
+			if ( '' === trim( (string) get_post_meta( $eid, '_aosev_start', true ) ) ) { $missing[] = get_the_title( $eid ); }
+		}
+		echo '<p>' . esc_html( sprintf( __( 'Published events: %1$d · without a start date: %2$d', 'aosars-events' ), count( (array) $ids ), count( $missing ) ) )
+			. ( $missing ? ' — <em>' . esc_html( implode( ', ', array_slice( $missing, 0, 10 ) ) ) . '</em>' : '' ) . '</p>';
+	}
+	echo '</div>';
 }
 add_filter( 'site_status_tests', aosev_guard( 'aosev_sh_register' ) );
 function aosev_sh_register( $t ) { $t['direct']['aosev_events'] = array( 'label' => __( 'AOSARS Events', 'aosars-events' ), 'test' => 'aosev_sh' ); return $t; }
@@ -1598,10 +1654,14 @@ function aosev_sh() {
 	$i = array();
 	if ( ! post_type_exists( 'aosars_event' ) ) { $i[] = __( 'the event post type is not registered', 'aosars-events' ); }
 	foreach ( array( 'aosars_events_portal', 'aosars_event', 'aosars_events_home' ) as $sc ) { if ( ! shortcode_exists( $sc ) ) { $i[] = sprintf( __( 'shortcode [%s] missing', 'aosars-events' ), $sc ); } }
+	$copies = 0;
+	foreach ( (array) get_option( 'active_plugins', array() ) as $ap ) { if ( 'aosars-events.php' === basename( (string) $ap ) ) { $copies++; } }
+	if ( $copies > 1 ) { $i[] = sprintf( __( '%d copies of the plugin are active — keep one, delete the rest', 'aosars-events' ), $copies ); }
 	$ok = empty( $i );
+	$where = sprintf( __( 'Running v%1$s from wp-content/plugins/%2$s.', 'aosars-events' ), AOSEV_VER, basename( dirname( __FILE__ ) ) );
 	return array(
 		'label' => $ok ? __( 'AOSARS Events is ready', 'aosars-events' ) : __( 'AOSARS Events needs attention', 'aosars-events' ),
 		'status' => $ok ? 'good' : 'recommended', 'badge' => array( 'label' => __( 'AOSARS', 'aosars-events' ), 'color' => 'blue' ),
-		'description' => '<p>' . esc_html( $ok ? __( 'The event type and shortcodes are active.', 'aosars-events' ) : implode( '; ', array_map( 'sanitize_text_field', $i ) ) ) . '</p>', 'test' => 'aosev_events',
+		'description' => '<p>' . esc_html( ( $ok ? __( 'The event type and shortcodes are active.', 'aosars-events' ) : implode( '; ', array_map( 'sanitize_text_field', $i ) ) ) . ' ' . $where ) . '</p>', 'test' => 'aosev_events',
 	);
 }

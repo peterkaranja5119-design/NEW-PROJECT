@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.8.0
+Stable tag: 5.9.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,14 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.9.0 =
+* Deployment-integrity release. Diagnosis: the entry fields and time pipeline are verified correct in this code, yet the site keeps behaving like an old version — which means the running copy is not the uploaded copy (typically a duplicate plugin folder, e.g. aosars-events-2, left by repeated zip uploads; the older copy loads first and silently blocks the newer one).
+* The silent double-load guard now SHOUTS: if a second copy is blocked, a red admin notice names both versions and folders and says exactly what to delete.
+* Activating this plugin automatically deactivates any other active copy of aosars-events.php (duplicate folders can no longer hijack loading).
+* The events list and settings screens show which version and folder is actually running; Site Health reports it too and flags duplicates.
+* Front-end pages carry an HTML comment stamp (<!-- aosars-events v5.9.0 -->) so view-source proves which version served the page (and exposes stale page caches).
+* New Diagnostics panel under Events → Settings: running version/folder/PHP, a live time-conversion self-test ("15 Jan 2026 14:00 EAT → epoch … CORRECT"), and a count/list of published events missing a start date.
 
 = 5.8.0 =
 * Data-entry clarity (the platform/link/date fields already existed and work — this makes them unmissable and gives feedback as you type):
