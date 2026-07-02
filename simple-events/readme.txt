@@ -25,6 +25,7 @@ Features:
 * Front-end details box automatically shown on single event pages.
 * "Add to Calendar" download (RFC 5545 .ics file) on single event pages.
 * Google Maps embed of the event location (no API key required).
+* Page builder compatible: bundled single-event template lets Elementor edit events.
 * `[simple_events]` shortcode with attributes for limit, scope, and category.
 * "Events List" block for the block editor (Gutenberg).
 * "Upcoming Events" widget.
@@ -79,6 +80,15 @@ Outlook.
 
 No. The map uses Google's keyless embed. You can hide the map for a specific
 event with the `simple_events_show_map` filter.
+
+= Elementor says "you must call the the_content function." How do I fix it? =
+
+This happens when your theme's template for custom post types does not call
+the_content(). The plugin includes a fallback single-event template that does,
+so "Edit with Elementor" works on events automatically. Your theme can override
+it with single-event.php or simple-events/single-event.php, or you can disable
+the bundled template with:
+`add_filter( 'simple_events_use_single_template', '__return_false' );`
 
 == Changelog ==
 

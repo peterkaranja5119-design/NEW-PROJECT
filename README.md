@@ -43,6 +43,7 @@ simple-events/
 │   ├── block.json                          # Block metadata + attributes
 │   ├── index.js                            # Editor script (no build step)
 │   └── index.asset.php                     # Editor script dependencies
+├── templates/single-event.php              # Fallback single-event template (Elementor-compatible)
 └── includes/
     ├── class-simple-events-plugin.php      # Wires everything together; admin columns; single-page details
     ├── class-simple-events-cpt.php         # Event post type + taxonomy
@@ -63,6 +64,24 @@ On single event pages the plugin adds:
   and Outlook.
 - A **Google Maps** embed of the event location (when an address is set). No API
   key is required. Disable it per-event with the `simple_events_show_map` filter.
+
+## Page builder (Elementor) compatibility
+
+Some themes don't call `the_content()` in their template for custom post types,
+which makes Elementor show *"you must call the the_content function in the
+current template."* To fix this, the plugin ships a fallback single-event
+template (`templates/single-event.php`) that calls `the_content()`, so
+**Edit with Elementor** works on event pages out of the box.
+
+Overriding is fully supported:
+
+- A theme's own `single-event.php` (or `single-{post_type}.php`) takes priority.
+- A theme override at `yourtheme/simple-events/single-event.php` is used next.
+- Disable the bundled template entirely with:
+  `add_filter( 'simple_events_use_single_template', '__return_false' );`
+
+When an event is built with Elementor, the auto-injected event-details box is
+skipped so details aren't duplicated on top of your Elementor layout.
 
 ## Requirements
 

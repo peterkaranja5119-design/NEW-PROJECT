@@ -57,6 +57,10 @@ class Simple_Events_Plugin {
 
 		// Front-end: prepend event details to single event content.
 		add_filter( 'the_content', array( $this, 'prepend_event_details' ) );
+
+		// Front-end: provide a single-event template that calls the_content()
+		// so page builders such as Elementor can edit event pages.
+		add_filter( 'single_template', array( $this, 'single_event_template' ) );
 	}
 
 	/**
@@ -161,7 +165,14 @@ class Simple_Events_Plugin {
 			return $content;
 		}
 
-		$post_id  = get_the_ID();
+		$post_id = get_the_ID();
+
+		// When the event page is built with Elementor, the builder renders its
+		// own layout; skip the auto-injected details box to avoid duplication.
+		if ( self::is_built_with_elementor( $post_id ) ) {
+			return $content;
+		}
+
 		$datetime = Simple_Events_Query::format_datetime( $post_id );
 		$venue    = get_post_meta( $post_id, '_event_venue', true );
 		$address  = get_post_meta( $post_id, '_event_address', true );
@@ -238,5 +249,73 @@ class Simple_Events_Plugin {
 		echo '</div>';
 
 		return ob_get_clean() . $content;
+	}
+
+	/**
+	 * Use a plugin-provided single-event template that calls the_content().
+	 *
+	 * Page builders such as Elementor require the active template to call
+	 * the_content() so they can locate the content area. Some themes don't do
+	 * this for custom post types, which triggers Elementor's "you must call the
+	 * the_content function" notice. This filter supplies a compatible template
+	 * while still honouring theme overrides:
+	 *
+	 *   1. A theme's own single-event.php (or single-{post_type}.php) wins.
+	 *   2. A theme override at yourtheme/simple-events/single-event.php wins next.
+	 *   3. Otherwise the bundled template is used.
+	 *
+	 * Disable entirely with:
+	 *   add_filter( 'simple_events_use_single_template', '__return_false' );
+	 *
+	 * @param string $template Path to the template WordPress resolved.
+	 * @return string
+	 */
+	public function single_event_template( $template ) {
+		if ( ! is_singular( Simple_Events_CPT::POST_TYPE ) ) {
+			return $template;
+		}
+
+		if ( ! apply_filters( 'simple_events_use_single_template', true, $template ) ) {
+			return $template;
+		}
+
+		// Respect a theme that explicitly targets this post type.
+		$theme_template = locate_template(
+			array(
+				'single-' . Simple_Events_CPT::POST_TYPE . '.php',
+				'simple-events/single-event.php',
+			)
+		);
+		if ( $theme_template ) {
+			return $theme_template;
+		}
+
+		$plugin_template = SIMPLE_EVENTS_DIR . 'templates/single-event.php';
+		if ( file_exists( $plugin_template ) ) {
+			return $plugin_template;
+		}
+
+		return $template;
+	}
+
+	/**
+	 * Determine whether a post is built with Elementor.
+	 *
+	 * @param int $post_id Post ID.
+	 * @return bool
+	 */
+	public static function is_built_with_elementor( $post_id ) {
+		if ( ! class_exists( '\Elementor\Plugin' ) ) {
+			return false;
+		}
+
+		$elementor = \Elementor\Plugin::instance();
+		if ( ! isset( $elementor->documents ) ) {
+			return false;
+		}
+
+		$document = $elementor->documents->get( $post_id );
+
+		return $document && $document->is_built_with_elementor();
 	}
 }
