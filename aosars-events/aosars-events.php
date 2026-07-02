@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.4.0
+ * Version:           5.5.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.4.0' );
+define( 'AOSEV_VER', '5.5.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -1131,6 +1131,22 @@ function aosev_sc_home( $atts = array() ) { return aosev_home_mount(); }
 add_shortcode( 'aosars_events_home', 'aosev_sc_home' );
 
 /* ---- 6. SINGLE CPT PAGE + SCHEMA ---- */
+/* True while the Elementor editor (or its preview iframe) is loading the page. In that
+   context page builders MUST be able to call the_content(), so we do NOT take over or
+   replace the content — otherwise Elementor reports "you must call the_content function". */
+function aosev_is_builder_edit_context() {
+	// phpcs:disable WordPress.Security.NonceVerification.Recommended
+	if ( isset( $_GET['elementor-preview'] ) ) { return true; }
+	if ( isset( $_GET['action'] ) && 'elementor' === $_GET['action'] ) { return true; }
+	if ( isset( $_REQUEST['action'] ) && in_array( $_REQUEST['action'], array( 'elementor_ajax', 'elementor' ), true ) ) { return true; }
+	// phpcs:enable
+	if ( class_exists( '\Elementor\Plugin' ) && isset( \Elementor\Plugin::$instance ) ) {
+		$ep = \Elementor\Plugin::$instance;
+		if ( isset( $ep->editor ) && is_callable( array( $ep->editor, 'is_edit_mode' ) ) && $ep->editor->is_edit_mode() ) { return true; }
+		if ( isset( $ep->preview ) && is_callable( array( $ep->preview, 'is_preview_mode' ) ) && $ep->preview->is_preview_mode() ) { return true; }
+	}
+	return false;
+}
 /* PRIMARY: take over the whole event page so ONLY our design renders — site header +
    app + site footer. This bypasses the theme's own post title / featured image /
    content, so nothing is displayed twice. Falls back to the the_content path (below)
@@ -1139,6 +1155,7 @@ add_action( 'template_redirect', aosev_guard( 'aosev_single_takeover' ) );
 function aosev_single_takeover() {
 	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! is_main_query() ) { return; }
 	if ( ( function_exists( 'is_embed' ) && is_embed() ) || is_feed() || post_password_required() ) { return; }
+	if ( aosev_is_builder_edit_context() ) { return; } // let Elementor's editor/preview use the theme template + the_content()
 	$s = aosev_settings();
 	if ( empty( $s['own_template'] ) ) { return; }
 	$id = (int) get_the_ID();
@@ -1159,6 +1176,7 @@ add_filter( 'the_content', aosev_guard( 'aosev_append_single' ), 20 );
 function aosev_append_single( $content ) {
 	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! in_the_loop() || ! is_main_query() ) { return $content; }
 	if ( false !== strpos( $content, 'aosev-app' ) ) { return $content; }
+	if ( aosev_is_builder_edit_context() ) { return $content; } // let the Elementor editor edit the real content
 	$s = aosev_settings();
 	if ( empty( $s['auto_append'] ) ) { return $content; }
 	$id = (int) get_the_ID();
