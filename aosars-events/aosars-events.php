@@ -6,9 +6,9 @@
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
- * Requires at least: 7.0
+ * Requires at least: 5.6
  * Requires PHP:      7.4
- * Tested up to:      7.0
+ * Tested up to:      6.5
  */
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
@@ -782,6 +782,12 @@ add_shortcode( 'aosars_event', 'aosev_sc_single' );
 /* ---- 6. SINGLE CPT PAGE + SCHEMA ---- */
 add_filter( 'the_content', aosev_guard( 'aosev_append_single' ), 20 );
 function aosev_append_single( $content ) {
+	// Re-entrancy guard: aosev_mount() builds the events payload, which can call
+	// get_the_excerpt() for events without a lead/summary; get_the_excerpt()
+	// re-applies the 'the_content' filter, which would recurse into this
+	// function and hang the page. Bail out on any nested call.
+	static $busy = false;
+	if ( $busy ) { return $content; }
 	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! in_the_loop() || ! is_main_query() ) { return $content; }
 	if ( false !== strpos( $content, 'aosev-app' ) ) { return $content; }
 	$s = aosev_settings();
@@ -790,7 +796,10 @@ function aosev_append_single( $content ) {
 	// Behave like a post: if the event page is designed in Elementor, respect that
 	// layout and do not append the default view (add the Single Event widget instead).
 	if ( 'builder' === get_post_meta( $id, '_elementor_edit_mode', true ) ) { return $content; }
-	return $content . aosev_mount( array( 'view' => 'single', 'id' => $id ) );
+	$busy = true;
+	$html = $content . aosev_mount( array( 'view' => 'single', 'id' => $id ) );
+	$busy = false;
+	return $html;
 }
 
 /* Provide a single-event template that calls the_content() so page builders

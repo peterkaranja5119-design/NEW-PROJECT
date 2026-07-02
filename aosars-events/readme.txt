@@ -1,7 +1,7 @@
 === AOSARS Events ===
 Contributors: Karanja Maina
-Requires at least: 7.0
-Tested up to: 7.0
+Requires at least: 5.6
+Tested up to: 6.5
 Requires PHP: 7.4
 Stable tag: 4.1.1
 License: GPL-2.0-or-later
@@ -32,6 +32,13 @@ of crashing the site. No database table, no REST routes, Elementor optional.
   respected, and the bundled template can be disabled with the
   aosev_use_single_template filter. This also ensures the event view renders on
   themes whose templates never call the_content() for custom post types.
+* Fixed a fatal recursion that could hang a single event page: building the
+  events payload called get_the_excerpt() for events without a lead/summary,
+  which re-applied the the_content filter and re-entered the appender. Added a
+  re-entrancy guard so the single view renders once.
+* Fixed the plugin/readme headers that required WordPress 7.0 (a version that
+  does not exist), which blocked installation and activation. The minimum is
+  now WordPress 5.6.
 
 = 4.1.0 =
 * Backend now mirrors a standard Post: Event Tags taxonomy added alongside Categories; comments/discussion, trackbacks and revisions enabled; post-type capabilities; admin list columns for When and Mode (sortable).
