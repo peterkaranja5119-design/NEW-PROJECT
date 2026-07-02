@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.0.0
+Stable tag: 6.1.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,11 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.1.0 =
+* Fixes the Doctor-report finding that "end/timezone/platform saved but start stayed EMPTY" when entered via the Elementor panel. Two-layer fix: (1) the save-hook sync now prefers the FRESH settings payload of the save (and Elementor's stored _elementor_page_settings) instead of the document object's possibly-stale settings; (2) a render-time safety net — if a field is empty in the event meta but Elementor stored a value for it, the page uses it AND backfills the meta (self-heal). Whatever you set in the ⚙ panel now reaches the page even if the save hook misfires.
+* The Start/End pickers in the Elementor panel now also accept direct typing (allowInput).
+* AOSARS Doctor 1.1.0: the report now prints each event's Elementor-side stored values (elementor_page_settings aosev_* keys), so a value stuck on the Elementor side is visible at a glance.
 
 = 6.0.0 =
 * THE WORKFLOW RELEASE — grounded in direct inspection of the live site. Forensics on aosars.com showed the plugin's features ARE live and rendering, but every one of the 15 events had start=0 and an empty join link: the data was never being SAVED, because events are created inside the Elementor editor, where WordPress meta boxes (the schedule/details boxes) do not exist.

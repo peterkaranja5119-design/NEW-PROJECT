@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Doctor
  * Description:       Read-only diagnostics for AOSARS Events. Tools → AOSARS Doctor shows which plugin copies exist, which version is running, whether time conversion is correct, and the raw schedule data saved on each event — as one copy-paste report. Safe to install alongside anything; changes nothing.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Update URI:        false
@@ -66,6 +66,18 @@ function aosdoc_page() {
 			$g( 'join_url' ) !== '' ? $g( 'join_url' ) : '(EMPTY — no Join button will show)',
 			$g( 'venue' ) !== '' ? $g( 'venue' ) : '(empty)'
 		);
+		// What Elementor's own settings store holds for this event (where a value hides
+		// when the save-hook sync misses it; v6.1.0 reads + backfills from here).
+		$ps = get_post_meta( $ev->ID, '_elementor_page_settings', true );
+		if ( is_array( $ps ) ) {
+			$sub = array();
+			foreach ( $ps as $k => $v ) {
+				if ( 0 === strpos( (string) $k, 'aosev_' ) && ! is_array( $v ) ) { $sub[] = $k . '=' . $v; }
+			}
+			$L[] = '     elementor_page_settings: ' . ( $sub ? implode( ' | ', $sub ) : '(no aosev_* keys)' ) . ' [total keys: ' . count( $ps ) . ']';
+		} else {
+			$L[] = '     elementor_page_settings: (none)';
+		}
 	}
 	$L[] = '';
 	$L[] = 'END OF REPORT';
