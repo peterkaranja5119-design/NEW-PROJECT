@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           5.7.0
+ * Version:           5.8.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -13,7 +13,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 if ( defined( 'AOSEV_VER' ) ) { return; }
-define( 'AOSEV_VER', '5.7.0' );
+define( 'AOSEV_VER', '5.8.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -981,6 +981,18 @@ function aosev_add_box() {
 	add_meta_box( 'aosev_schedule', __( '📅 Event schedule', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_details', __( 'Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 }
+/* Flag events with no start date on the edit screen, so an unset date is impossible to miss. */
+add_action( 'admin_notices', aosev_guard( 'aosev_no_date_notice' ) );
+function aosev_no_date_notice() {
+	if ( ! function_exists( 'get_current_screen' ) ) { return; }
+	$sc = get_current_screen();
+	if ( ! $sc || 'aosars_event' !== $sc->post_type || 'post' !== $sc->base ) { return; }
+	$id = isset( $_GET['post'] ) ? (int) $_GET['post'] : ( isset( $GLOBALS['post']->ID ) ? (int) $GLOBALS['post']->ID : 0 ); // phpcs:ignore WordPress.Security.NonceVerification
+	if ( ! $id || 'auto-draft' === get_post_status( $id ) ) { return; }
+	if ( '' !== trim( (string) get_post_meta( $id, '_aosev_start', true ) ) ) { return; }
+	echo '<div class="notice notice-warning"><p><strong>' . esc_html__( 'This event has no start date.', 'aosars-events' ) . '</strong> '
+		. esc_html__( 'Set “Start date & time” in the 📅 Event schedule box (top-right). Until then the event shows “To be announced” with no countdown.', 'aosars-events' ) . '</p></div>';
+}
 /* Curated per-event timezones — matches the viewer timezone bar on the front end. */
 function aosev_timezones() {
 	return array(
@@ -1074,14 +1086,15 @@ function aosev_field_html( $k, $def, $v ) {
 }
 function aosev_schedule_box_html( $post ) {
 	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
-	echo '<style>#aosev_schedule label{display:block;font-weight:600;margin:10px 0 4px}#aosev_schedule input,#aosev_schedule select{width:100%}#aosev_schedule .aosev-hint{font-size:11px;color:#646970;margin:6px 0 0}</style>';
+	echo '<style>#aosev_schedule label{display:block;font-weight:600;margin:10px 0 4px}#aosev_schedule input,#aosev_schedule select{width:100%}#aosev_schedule .aosev-hint{font-size:11px;color:#646970;margin:6px 0 0}#aosev-when-preview{display:none;margin:10px 0 0;padding:9px 11px;border-radius:8px;background:#eaf7ff;border:1px solid #b6e3ff;font-size:12.5px;color:#0b5e86;font-weight:600}#aosev-when-preview b{color:#08405c}#aosev_schedule .aosev-ver{font-size:10.5px;color:#8c8f94;margin:12px 0 0;text-align:right}</style>';
 	$fields = aosev_fields();
 	foreach ( aosev_schedule_keys() as $k ) {
 		aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
 	}
+	echo '<div id="aosev-when-preview"></div>';
 	echo '<p id="aosev-endwarn" style="display:none;color:#b32d2e;font-weight:600;margin:8px 0 0">' . esc_html__( 'End is not after start — the page will assume a 2-hour duration.', 'aosars-events' ) . '</p>';
-	echo '<p class="aosev-hint">' . esc_html__( 'Times you enter are in the selected timezone. Without a start date the event shows "To be announced" and no countdown.', 'aosars-events' ) . '</p>';
-	echo '<script>(function(){var s=document.getElementById("aosev_start"),e=document.getElementById("aosev_end"),w=document.getElementById("aosev-endwarn");function c(){if(s&&e&&w){w.style.display=(s.value&&e.value&&e.value<=s.value)?"block":"none";}}if(s&&e){s.addEventListener("change",c);e.addEventListener("change",c);c();}})();</script>';
+	echo '<p class="aosev-hint">' . esc_html__( 'Times are read in the selected timezone. No start date → the event shows "To be announced".', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-ver">' . esc_html( sprintf( __( 'AOSARS Events v%s · set details here (not inside Elementor).', 'aosars-events' ), AOSEV_VER ) ) . '</p>';
 }
 function aosev_box_html( $post ) {
 	// Nonce printed in BOTH boxes: saving must not depend on one box being visible.
@@ -1090,11 +1103,16 @@ function aosev_box_html( $post ) {
 	.aosev-mb .aosev-grp{margin:0 0 6px;padding:12px 14px;border:1px solid #e2e4e7;border-radius:8px;background:#fafafa}
 	.aosev-mb .aosev-grp>h3{margin:0 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.4px;color:#1d2327}
 	.aosev-mb .aosev-cols{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}
+	.aosev-mb .aosev-note{font-size:12px;color:#50575e;margin:0 0 8px}
+	.aosev-mb .aosev-fieldnote{font-size:11px;color:#646970;margin:2px 0 0}
 	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
 	$fields = aosev_fields();
 	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder', 'link_private' );
 	foreach ( aosev_field_groups() as $heading => $keys ) {
 		echo '<div class="aosev-grp"><h3>' . esc_html( $heading ) . '</h3>';
+		if ( '📍 Venue & joining' === $heading ) {
+			echo '<p class="aosev-note" id="aosev-joinnote">' . esc_html__( 'Online/Hybrid: pick the platform, then paste its join link (a Google Meet code also works). In-person: fill Venue & Address.', 'aosars-events' ) . '</p>';
+		}
 		$cols = array_diff( $keys, $wide );
 		if ( $cols ) {
 			echo '<div class="aosev-cols">';
@@ -1107,6 +1125,49 @@ function aosev_box_html( $post ) {
 		echo '</div>';
 	}
 	echo '</div>';
+	aosev_box_script();
+}
+/* Meta-box helper JS: live date preview, end<=start warning, and a platform-aware
+   placeholder/hint on the Join-link field. All null-guarded; degrades to plain fields. */
+function aosev_box_script() {
+	$tzlabels = wp_json_encode( array(
+		'Africa/Nairobi' => 'EAT', 'Africa/Lagos' => 'WAT', 'Africa/Maputo' => 'CAT',
+		'Africa/Johannesburg' => 'SAST', 'Africa/Accra' => 'GMT', 'UTC' => 'UTC',
+	) );
+	$placeholders = wp_json_encode( array(
+		'Zoom' => 'https://zoom.us/j/1234567890', 'Microsoft Teams' => 'https://teams.microsoft.com/l/meetup-join/…',
+		'Webex' => 'https://example.webex.com/meet/…', 'YouTube Live' => 'https://youtube.com/live/…',
+		'Google Meet' => 'https://meet.google.com/abc-defg-hij (or use the code field)', 'Other' => 'https://…',
+	) );
+	$wk = wp_json_encode( array( 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat' ) );
+	$mo = wp_json_encode( array( 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' ) );
+	echo '<script>(function(){
+	function $(id){return document.getElementById(id);}
+	function ready(fn){if(document.readyState!=="loading"){fn();}else{document.addEventListener("DOMContentLoaded",fn);}}
+	ready(function(){
+	 var TZ=' . $tzlabels . ',PH=' . $placeholders . ',WK=' . $wk . ',MO=' . $mo . ';
+	 var start=$("aosev_start"),end=$("aosev_end"),tz=$("aosev_tzone"),mode=$("aosev_mode"),
+	     plat=$("aosev_platform"),link=$("aosev_join_url"),prev=$("aosev-when-preview"),warn=$("aosev-endwarn"),note=$("aosev-joinnote");
+	 function fmt(v){ if(!v)return ""; var p=v.split("T"); if(p.length<2)return ""; var d=p[0].split("-"),t=p[1].split(":");
+	   var dt=new Date(+d[0],+d[1]-1,+d[2]); if(isNaN(dt))return "";
+	   return WK[dt.getDay()]+" "+(+d[2])+" "+MO[+d[1]-1]+" "+d[0]+", "+t[0]+":"+t[1]; }
+	 function updatePrev(){ if(!prev)return; var lab=(tz&&TZ[tz.value])?TZ[tz.value]:"EAT";
+	   var s=start?fmt(start.value):"";
+	   if(!s){ prev.style.display="none"; return; }
+	   var e=end?fmt(end.value):""; var etime=(end&&end.value&&end.value.split("T")[1])?end.value.split("T")[1]:"";
+	   prev.innerHTML="Shows on the event page as: <b>"+s+(etime&&e?"–"+etime:"")+" "+lab+"</b>";
+	   prev.style.display="block"; }
+	 function updateWarn(){ if(warn&&start&&end){ warn.style.display=(start.value&&end.value&&end.value<=start.value)?"block":"none"; } }
+	 function updateLink(){ if(link&&plat){ var p=plat.value||"Google Meet"; link.placeholder=PH[p]||PH.Other; } }
+	 function updateNote(){ if(note&&mode){ var m=mode.value; note.textContent = (m==="In-person")
+	   ? "In-person event: fill Venue & Address below (platform/link are ignored)."
+	   : "Online/Hybrid: pick the platform, then paste its join link (a Google Meet code also works)."; } }
+	 [start,end,tz].forEach(function(el){ if(el){el.addEventListener("input",function(){updatePrev();updateWarn();});el.addEventListener("change",function(){updatePrev();updateWarn();});} });
+	 if(plat){plat.addEventListener("change",updateLink);}
+	 if(mode){mode.addEventListener("change",updateNote);}
+	 updatePrev();updateWarn();updateLink();updateNote();
+	});
+	})();</script>';
 }
 add_action( 'save_post_aosars_event', aosev_guard( 'aosev_save' ), 10, 2 );
 function aosev_save( $post_id, $post ) {

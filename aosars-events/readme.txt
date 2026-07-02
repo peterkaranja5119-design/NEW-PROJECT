@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 5.7.0
+Stable tag: 5.8.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,14 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 5.8.0 =
+* Data-entry clarity (the platform/link/date fields already existed and work — this makes them unmissable and gives feedback as you type):
+* Live "Shows on the event page as: Fri 14 Aug 2026, 14:00 EAT" preview appears under the start date and updates as you type, so you can see the date/time is captured before saving.
+* The Join-link field now shows a platform-specific placeholder (choose Zoom → "https://zoom.us/j/…", Teams → Teams URL, etc.), and a live hint switches between online-platform vs in-person-venue guidance based on the Format.
+* An admin warning appears on any saved event that has no start date, pointing to the 📅 Event schedule box.
+* A version stamp is shown in the schedule box ("AOSARS Events v5.8.0 · set details here, not inside Elementor") so you can confirm the running version and know these fields live in the standard editor (they are hidden inside the Elementor editor).
+* Note: if you edit events inside Elementor you will NOT see these fields — open the event in the normal WordPress editor to set the date, timezone, platform and join link.
 
 = 5.7.0 =
 * Timezone-aware scheduling: a Timezone selector in the 📅 Event schedule box (EAT, WAT, CAT, SAST, GMT, UTC — default EAT). Times you type are now interpreted in that zone; previously they were read as UTC, so every event displayed 3 hours late. Events saved before this update are reinterpreted as EAT, which corrects them.
