@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.1.0
+ * Version:           6.2.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.1.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.2.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.1.0' );
+define( 'AOSEV_VER', '6.2.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -997,10 +997,26 @@ function aosev_ensure_elementor_support() {
 /* Two boxes, so the essentials are impossible to miss:
    - "Event schedule" in the SIDE column (right next to Publish): start, end, mode.
    - "Event details" below the editor, organised into clearly-labelled groups. */
+/* v6.2.0 backend redesign — data entry rebuilt against Modern Events Calendar's layout.
+   Four boxes replace the old two: three compact cards pinned in the sidebar (the things
+   that always matter — WHEN, HOW to attend, and REGISTER) plus one roomy Details box in
+   the main column. Same fields, same save, same data bridge — only the arrangement is new.
+   This is mockup "#4 · Sidebar schedule + main details" from the approved outlook set. */
 add_action( 'add_meta_boxes', aosev_guard( 'aosev_add_box' ) );
 function aosev_add_box() {
-	add_meta_box( 'aosev_schedule', __( '📅 Event schedule', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
-	add_meta_box( 'aosev_details', __( 'Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_schedule', __( '📅 Date & time', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_attend', __( '📍 How to attend', 'aosars-events' ), 'aosev_attend_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_register', __( '🎟 Register & cost', 'aosars-events' ), 'aosev_register_box_html', 'aosars_event', 'side', 'default', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_details', __( '📝 Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+}
+/* Single source of truth for which field lives in which box (MEC-benchmarked grouping). */
+function aosev_box_map() {
+	return array(
+		'schedule' => array( 'start', 'end', 'tzone', 'mode' ),
+		'attend'   => array( 'platform', 'join_url', 'code', 'link_private', 'venue', 'address' ),
+		'register' => array( 'fee', 'capacity', 'taken', 'url', 'organiser' ),
+		'details'  => array( 'icon', 'summary', 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html', 'use_builder' ),
+	);
 }
 /* Flag events with no start date on the edit screen, so an unset date is impossible to miss. */
 add_action( 'admin_notices', aosev_guard( 'aosev_no_date_notice' ) );
@@ -1074,13 +1090,13 @@ function aosev_fields() {
 	// Anything richer than these fields is authored in the WordPress editor / Elementor
 	// (the event body) and renders inside the single-page “About this event” area.
 }
-/* Which fields live in the side "Event schedule" box (everything else renders in the main box). */
-function aosev_schedule_keys() { return array( 'start', 'end', 'tzone', 'mode' ); }
-/* Groups for the main box — heading => field keys. Discoverability beats a flat 19-field list. */
+/* Which fields live in the side "Date & time" box. Sourced from the box map. */
+function aosev_schedule_keys() { $m = aosev_box_map(); return $m['schedule']; }
+/* Groups for the main Details box — heading => field keys. The venue/joining and
+   register groups now live in their own sidebar boxes (v6.2.0), so this box holds only
+   the page content. Discoverability beats a flat list. */
 function aosev_field_groups() {
 	return array(
-		__( '📍 Venue & joining', 'aosars-events' )      => array( 'venue', 'address', 'platform', 'join_url', 'code', 'url', 'link_private' ),
-		__( '🎟 Tickets & organiser', 'aosars-events' )  => array( 'organiser', 'fee', 'capacity', 'taken' ),
 		__( '🃏 Event card (grid)', 'aosars-events' )    => array( 'icon', 'summary' ),
 		__( '📄 Single-page sections (blank = hidden)', 'aosars-events' ) => array( 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html' ),
 		__( '⚙ Display', 'aosars-events' )               => array( 'use_builder' ),
@@ -1126,15 +1142,42 @@ function aosev_field_html( $k, $def, $v ) {
 }
 function aosev_schedule_box_html( $post ) {
 	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
-	echo '<style>#aosev_schedule label{display:block;font-weight:600;margin:10px 0 4px}#aosev_schedule input,#aosev_schedule select{width:100%}#aosev_schedule .aosev-hint{font-size:11px;color:#646970;margin:6px 0 0}#aosev-when-preview{display:none;margin:10px 0 0;padding:9px 11px;border-radius:8px;background:#eaf7ff;border:1px solid #b6e3ff;font-size:12.5px;color:#0b5e86;font-weight:600}#aosev-when-preview b{color:#08405c}#aosev_schedule .aosev-ver{font-size:10.5px;color:#8c8f94;margin:12px 0 0;text-align:right}</style>';
+	echo '<style>#aosev_schedule label{display:block;font-weight:600;margin:10px 0 4px}#aosev_schedule input,#aosev_schedule select{width:100%}#aosev_schedule label[for="aosev_start"]::after{content:" *";color:#d63638;font-weight:800}#aosev_schedule .aosev-hint{font-size:11px;color:#646970;margin:6px 0 0}#aosev-when-preview{display:none;margin:10px 0 0;padding:9px 11px;border-radius:8px;background:#eaf7ff;border:1px solid #b6e3ff;font-size:12.5px;color:#0b5e86;font-weight:600}#aosev-when-preview b{color:#08405c}#aosev-nodate{margin:9px 0 0;padding:8px 11px;border-radius:8px;background:#fcf0f1;border:1px solid #f0b7ba;font-size:12px;color:#8a1f24;font-weight:600}#aosev_schedule .aosev-ver{font-size:10.5px;color:#8c8f94;margin:12px 0 0;text-align:right}</style>';
 	$fields = aosev_fields();
 	foreach ( aosev_schedule_keys() as $k ) {
 		aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
 	}
 	echo '<div id="aosev-when-preview"></div>';
+	echo '<div id="aosev-nodate" style="display:none">' . esc_html__( 'No start date yet — the event will show “To be announced” with no countdown until you set one.', 'aosars-events' ) . '</div>';
 	echo '<p id="aosev-endwarn" style="display:none;color:#b32d2e;font-weight:600;margin:8px 0 0">' . esc_html__( 'End is not after start — the page will assume a 2-hour duration.', 'aosars-events' ) . '</p>';
-	echo '<p class="aosev-hint">' . esc_html__( 'Times are read in the selected timezone. No start date → the event shows "To be announced".', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-hint">' . esc_html__( 'Times are read in the selected timezone. Start is required (marked *).', 'aosars-events' ) . '</p>';
 	echo '<p class="aosev-ver">' . esc_html( sprintf( __( 'AOSARS Events v%s · set details here (not inside Elementor).', 'aosars-events' ), AOSEV_VER ) ) . '</p>';
+	// The shared helper script lives here because this box is always present and rendered
+	// first; it wires the live preview, the end<=start warning, the platform-aware
+	// placeholder in the "How to attend" box, and the empty-date banner.
+	aosev_box_script();
+}
+/* Compact renderer shared by the sidebar cards. Prints a nonce (saving must survive any
+   one box being collapsed via Screen Options) plus a scoped style, then stacks fields. */
+function aosev_render_side_box( $post, $keys, $box_id ) {
+	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
+	echo '<style>#' . esc_attr( $box_id ) . ' label{display:block;font-weight:600;margin:10px 0 4px}#' . esc_attr( $box_id ) . ' input,#' . esc_attr( $box_id ) . ' select,#' . esc_attr( $box_id ) . ' textarea{width:100%}#' . esc_attr( $box_id ) . ' .aosev-note{font-size:11.5px;color:#50575e;margin:0 0 4px;line-height:1.45}</style>';
+	$fields = aosev_fields();
+	foreach ( $keys as $k ) {
+		aosev_field_html( $k, $fields[ $k ], get_post_meta( $post->ID, '_aosev_' . $k, true ) );
+	}
+}
+/* 📍 How to attend — format-aware: online events surface the platform + join link; the
+   little note flips to venue guidance for in-person events (wired by aosev_box_script). */
+function aosev_attend_box_html( $post ) {
+	$map = aosev_box_map();
+	echo '<p class="aosev-note" id="aosev-joinnote" style="font-size:11.5px;color:#50575e;margin:0 0 6px;line-height:1.45">' . esc_html__( 'Online / Hybrid: pick the platform, then paste its join link (a Google Meet code also works). In-person: fill Venue & Address.', 'aosars-events' ) . '</p>';
+	aosev_render_side_box( $post, $map['attend'], 'aosev_attend' );
+}
+/* 🎟 Register & cost — fee, capacity, spots taken, registration link, organiser. */
+function aosev_register_box_html( $post ) {
+	$map = aosev_box_map();
+	aosev_render_side_box( $post, $map['register'], 'aosev_register' );
 }
 function aosev_box_html( $post ) {
 	// Nonce printed in BOTH boxes: saving must not depend on one box being visible.
@@ -1146,13 +1189,11 @@ function aosev_box_html( $post ) {
 	.aosev-mb .aosev-note{font-size:12px;color:#50575e;margin:0 0 8px}
 	.aosev-mb .aosev-fieldnote{font-size:11px;color:#646970;margin:2px 0 0}
 	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
+	echo '<p class="aosev-note">' . esc_html__( 'The date, join link, cost and capacity are in the sidebar boxes on the right. This box holds the page content — all of it optional.', 'aosars-events' ) . '</p>';
 	$fields = aosev_fields();
 	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder', 'link_private' );
 	foreach ( aosev_field_groups() as $heading => $keys ) {
 		echo '<div class="aosev-grp"><h3>' . esc_html( $heading ) . '</h3>';
-		if ( '📍 Venue & joining' === $heading ) {
-			echo '<p class="aosev-note" id="aosev-joinnote">' . esc_html__( 'Online/Hybrid: pick the platform, then paste its join link (a Google Meet code also works). In-person: fill Venue & Address.', 'aosars-events' ) . '</p>';
-		}
 		$cols = array_diff( $keys, $wide );
 		if ( $cols ) {
 			echo '<div class="aosev-cols">';
@@ -1165,7 +1206,6 @@ function aosev_box_html( $post ) {
 		echo '</div>';
 	}
 	echo '</div>';
-	aosev_box_script();
 }
 /* Meta-box helper JS: live date preview, end<=start warning, and a platform-aware
    placeholder/hint on the Join-link field. All null-guarded; degrades to plain fields. */
@@ -1187,13 +1227,14 @@ function aosev_box_script() {
 	ready(function(){
 	 var TZ=' . $tzlabels . ',PH=' . $placeholders . ',WK=' . $wk . ',MO=' . $mo . ';
 	 var start=$("aosev_start"),end=$("aosev_end"),tz=$("aosev_tzone"),mode=$("aosev_mode"),
-	     plat=$("aosev_platform"),link=$("aosev_join_url"),prev=$("aosev-when-preview"),warn=$("aosev-endwarn"),note=$("aosev-joinnote");
+	     plat=$("aosev_platform"),link=$("aosev_join_url"),prev=$("aosev-when-preview"),nodate=$("aosev-nodate"),warn=$("aosev-endwarn"),note=$("aosev-joinnote");
 	 function fmt(v){ if(!v)return ""; var p=v.split("T"); if(p.length<2)return ""; var d=p[0].split("-"),t=p[1].split(":");
 	   var dt=new Date(+d[0],+d[1]-1,+d[2]); if(isNaN(dt))return "";
 	   return WK[dt.getDay()]+" "+(+d[2])+" "+MO[+d[1]-1]+" "+d[0]+", "+t[0]+":"+t[1]; }
 	 function updatePrev(){ if(!prev)return; var lab=(tz&&TZ[tz.value])?TZ[tz.value]:"EAT";
 	   var s=start?fmt(start.value):"";
-	   if(!s){ prev.style.display="none"; return; }
+	   if(!s){ prev.style.display="none"; if(nodate)nodate.style.display="block"; return; }
+	   if(nodate)nodate.style.display="none";
 	   var e=end?fmt(end.value):""; var etime=(end&&end.value&&end.value.split("T")[1])?end.value.split("T")[1]:"";
 	   prev.innerHTML="Shows on the event page as: <b>"+s+(etime&&e?"–"+etime:"")+" "+lab+"</b>";
 	   prev.style.display="block"; }

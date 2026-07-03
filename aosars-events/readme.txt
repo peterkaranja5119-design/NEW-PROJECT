@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.1.0
+Stable tag: 6.2.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,12 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.2.0 =
+* Data entry rebuilt, benchmarked against Modern Events Calendar. The old two-box screen is replaced by a cleaner four-box layout ("Sidebar schedule + main details", the approved mockup #4): three compact cards pinned in the sidebar — 📅 Date & time, 📍 How to attend, 🎟 Register & cost — plus a roomy 📝 Event details box in the main column. The two things that used to go missing (the date and the join link) are now pinned in the sidebar where they can't be overlooked.
+* Start date is now marked required (*) with a live red "no start date yet" banner in the Date & time box, so a blank date can no longer slip through silently.
+* Same fields, same save, same data bridge and the same Elementor self-heal — no data-model change, so existing events keep working. Verified end-to-end: entered date, timezone, platform and join link all reach the single event page (date, countdown and Join button).
+* One plugin only: the separate AOSARS Doctor diagnostics plugin has been removed. Its checks already live under Events → Settings → Diagnostics (running version/folder, time-conversion self-test, and a list of events missing a start date).
 
 = 6.1.0 =
 * Fixes the Doctor-report finding that "end/timezone/platform saved but start stayed EMPTY" when entered via the Elementor panel. Two-layer fix: (1) the save-hook sync now prefers the FRESH settings payload of the save (and Elementor's stored _elementor_page_settings) instead of the document object's possibly-stale settings; (2) a render-time safety net — if a field is empty in the event meta but Elementor stored a value for it, the page uses it AND backfills the meta (self-heal). Whatever you set in the ⚙ panel now reaches the page even if the save hook misfires.
