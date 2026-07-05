@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.6.0
+Stable tag: 6.7.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,13 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.7.0 =
+* THE BIG ONE — why entered dates never stuck on the live site. Forensics on aosars.com showed every event's date meta was empty: the date was being typed into the event screen and then the editor jumped to "Edit with Elementor" (or published from inside Elementor) WITHOUT clicking Update — and WordPress's automatic handoff save carries the title only, silently discarding everything typed into the event boxes. Reproduced exactly, then fixed three ways:
+* Abandoned-form rescue: if you type into the event boxes and leave the screen without clicking Update (including the Edit-with-Elementor jump), the fields are now sent to the server in the background and saved anyway — nonce-verified, same sanitisation.
+* Save receipts: after every save the edit screen now shows exactly what happened — green "Date & time saved: Tue 15 Sep 2026, 16:30 EAT · Join link saved", red "this save arrived WITHOUT the event fields" (with what to do), or the Elementor-sync report. A failing flow is now a readable message, never a silent mystery.
+* Mirror channel: the schedule fields also travel as one compact backup field; if a hosting firewall or PHP input limit strips the normal fields from the request, the server recovers them from the backup and the receipt says so.
+* All layers verified in a real browser against a real WordPress: normal save (green receipt, date on front end), field-less save (red receipt, stored date untouched), abandoned-form jump (date rescued), stripped-request recovery (harness).
 
 = 6.6.0 =
 * FIX: the entered date/time (and the countdown and Join button) did not appear on the single event page for events that had only a date and no summary/lead text. Cause: while building the page data the plugin briefly rendered the post excerpt, which re-entered the content filter and consumed the one-time slots that emit the app's stylesheet and script — so the page shipped the data but not the script that draws the countdown. The stylesheet/script are now claimed before the data is built, and a render guard stops the excerpt from re-entering the renderer. Diagnosed by an independent 5-investigator review and verified end to end in a real WordPress install (the date, live countdown and Join button now render).
