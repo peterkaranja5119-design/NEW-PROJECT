@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.4.0
+Stable tag: 6.5.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,11 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.5.0 =
+* The event editor now renders the agreed four-box design for real. Events open in the CLASSIC editor (not the block editor), so the 📅 Date & time, 📍 How to attend and 🎟 Register & cost cards sit together in the right sidebar and the 📝 Event details box — with the HTML content field — is prominent in the main column. In the block editor these boxes were cramped into a narrow panel and the content box was hidden in a collapsed drawer at the very bottom.
+* Removed WordPress's stock clutter from the event screen (Custom Fields, Comments, Discussion, Send Trackbacks, Excerpt, Author) so only the four AOSARS boxes plus Publish / Categories / Tags / Featured image remain.
+* Verified end to end in a real WordPress install: the edit screen matches the design, and the front-end single page still shows the date, live countdown and Join button.
 
 = 6.4.0 =
 * Hardening pass from an independent multi-engineer code review (four independent rewrites, diffed and reconciled). Ten backward-compatible fixes, no data-model change:
