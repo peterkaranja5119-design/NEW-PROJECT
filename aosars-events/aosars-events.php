@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.7.0
+ * Version:           6.7.1
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.7.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.7.1) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.7.0' );
+define( 'AOSEV_VER', '6.7.1' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -874,7 +874,10 @@ function aosev_guard( $cb ) {
 	return function ( ...$args ) use ( $cb ) {
 		try { return call_user_func_array( $cb, $args ); }
 		catch ( \Throwable $e ) {
-			if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] skipped: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() ); }
+			// Log UNCONDITIONALLY (not only under WP_DEBUG): a silently-swallowed fault on a live
+			// host (e.g. an Elementor version mismatch breaking the ⚙ panel) must at least leave a
+			// trace in the PHP error log, or it is undiagnosable from outside.
+			error_log( '[AOSARS Events] guarded hook skipped: ' . ( is_string( $cb ) ? $cb : 'closure' ) . ' — ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine() );
 			return isset( $args[0] ) ? $args[0] : null;
 		}
 	};
@@ -1235,7 +1238,8 @@ function aosev_schedule_box_html( $post ) {
 	echo '<div id="aosev-nodate" style="display:none">' . esc_html__( 'No start date yet — the event will show “To be announced” with no countdown until you set one.', 'aosars-events' ) . '</div>';
 	echo '<p id="aosev-endwarn" style="display:none;color:#b32d2e;font-weight:600;margin:8px 0 0">' . esc_html__( 'End is not after start — the page will assume a 2-hour duration.', 'aosars-events' ) . '</p>';
 	echo '<p class="aosev-hint">' . esc_html__( 'Times are read in the selected timezone. Start is required (marked *).', 'aosars-events' ) . '</p>';
-	echo '<p class="aosev-ver">' . esc_html( sprintf( __( 'AOSARS Events v%s · set details here (not inside Elementor).', 'aosars-events' ), AOSEV_VER ) ) . '</p>';
+	echo '<p class="aosev-hint">' . esc_html__( '⚠ The “Published on” date in the Publish box is NOT the event date — the event’s date & time is set HERE.', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-ver">' . esc_html( sprintf( __( 'AOSARS Events v%s · your entries here are kept even if you jump to Elementor without clicking Update.', 'aosars-events' ), AOSEV_VER ) ) . '</p>';
 	// The shared helper script lives here because this box is always present and rendered
 	// first; it wires the live preview, the end<=start warning, the platform-aware
 	// placeholder in the "How to attend" box, and the empty-date banner.

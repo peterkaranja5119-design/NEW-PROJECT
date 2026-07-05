@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.7.0
+Stable tag: 6.7.1
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,10 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.7.1 =
+* Guarded-hook faults are now ALWAYS written to the PHP error log (previously only under WP_DEBUG, which is off on most live hosts) — if e.g. an Elementor version mismatch ever breaks the ⚙ panel, it leaves a diagnosable trace instead of disappearing.
+* Added a hint in the 📅 Date & time box clarifying that the Publish box's "Published on" date is NOT the event date — a natural mix-up that made typed dates land in the wrong place.
 
 = 6.7.0 =
 * THE BIG ONE — why entered dates never stuck on the live site. Forensics on aosars.com showed every event's date meta was empty: the date was being typed into the event screen and then the editor jumped to "Edit with Elementor" (or published from inside Elementor) WITHOUT clicking Update — and WordPress's automatic handoff save carries the title only, silently discarding everything typed into the event boxes. Reproduced exactly, then fixed three ways:
