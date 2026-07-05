@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.7.1
+Stable tag: 6.8.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,10 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.8.0 =
+* Hand-typed dates now save. In a browser without a native date picker the "Start date & time" field degrades to plain text, and values typed the human way — 15/08/2026 14:00, 15.08.2026, "15 August 2026 2:00 pm" — were silently rejected in EVERY previous version (the likeliest reason a date typed "with your own eyes" never stuck). These formats are now understood, normalised and saved.
+* Save flight recorder: every save's receipt (which fields the request contained, the RAW start value received, what was stored or rejected, request type, browser) is now stored permanently per event and shown on the edit screen ("last save, 2 hours ago: …") no matter when you look. Settings → Diagnostics gains a copy-paste "Save flight recorder" report for the last 10 events — one paste identifies any remaining failing flow definitively.
 
 = 6.7.1 =
 * Guarded-hook faults are now ALWAYS written to the PHP error log (previously only under WP_DEBUG, which is off on most live hosts) — if e.g. an Elementor version mismatch ever breaks the ⚙ panel, it leaves a diagnosable trace instead of disappearing.
