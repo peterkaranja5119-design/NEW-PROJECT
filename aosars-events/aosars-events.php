@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.2.0
+ * Version:           6.3.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.2.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.3.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.2.0' );
+define( 'AOSEV_VER', '6.3.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -551,8 +551,10 @@ define( 'AOSEV_JS', <<<'AOSEV_JS_END'
 
     /* ----- main-column sections; each is OMITTED when the event has no data for it ----- */
     var secs="";
-    if(e.customHtml){ secs+='<div class="aosev-chtml">'+e.customHtml+'</div>'; }
-    var about=(e.leadH||"")+(e.body||"");
+    /* v6.3.0: the event body is one HTML content field. It renders inside the styled
+       "About this event" section (custom_html first, then any legacy lead + the WP/
+       Elementor authored body), so authored HTML gets the AOSARS typography. */
+    var about=(e.customHtml||"")+(e.leadH||"")+(e.body||"");
     if(!about&&e.lead){ about='<p>'+esc(e.lead)+'</p>'; }
     if(about){ secs+='<div class="sec"><span class="sec-eyebrow">Overview</span><h2>About this event</h2><div class="rich">'+about+'</div></div>'; }
 
@@ -1015,7 +1017,7 @@ function aosev_box_map() {
 		'schedule' => array( 'start', 'end', 'tzone', 'mode' ),
 		'attend'   => array( 'platform', 'join_url', 'code', 'link_private', 'venue', 'address' ),
 		'register' => array( 'fee', 'capacity', 'taken', 'url', 'organiser' ),
-		'details'  => array( 'icon', 'summary', 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html', 'use_builder' ),
+		'details'  => array( 'custom_html', 'summary', 'icon', 'use_builder' ),
 	);
 }
 /* Flag events with no start date on the edit screen, so an unset date is impossible to miss. */
@@ -1079,16 +1081,13 @@ function aosev_fields() {
 		'taken'    => array( 'number', __( 'Spots taken', 'aosars-events' ) ),
 		'icon'     => array( 'text', __( 'Icon emoji (optional)', 'aosars-events' ) ),
 		'summary'  => array( 'textarea', __( 'Card blurb (short text shown on the events grid)', 'aosars-events' ) ),
-		'lead'     => array( 'html', __( 'Lead paragraph (shown under “About this event”; HTML allowed)', 'aosars-events' ) ),
-		'covers'   => array( 'lines', __( "What you'll cover — one point per line (leave blank to hide the section)", 'aosars-events' ) ),
-		'agenda'   => array( 'lines', __( 'Agenda — one per line, e.g. 14:00 Welcome (blank hides the section)', 'aosars-events' ) ),
-		'facil_name' => array( 'text', __( 'Facilitator name (blank hides the facilitator section)', 'aosars-events' ) ),
-		'facil_bio'  => array( 'html', __( 'Facilitator bio (HTML allowed; blank hides the facilitator section)', 'aosars-events' ) ),
-		'custom_html' => array( 'code', __( 'Custom HTML — paste raw HTML here and it renders as-is at the top of the event body (blank to skip)', 'aosars-events' ) ),
+		'custom_html' => array( 'code', __( 'Event content — write or paste HTML here (headings, lists, tables, images, even embedded video). Renders as the event’s “About this event” section. Leave blank to use the WordPress editor / Elementor body instead.', 'aosars-events' ) ),
 		'use_builder' => array( 'checkbox', __( 'Design THIS event page in Elementor / the theme instead of the AOSARS layout', 'aosars-events' ) ),
 	);
-	// Anything richer than these fields is authored in the WordPress editor / Elementor
-	// (the event body) and renders inside the single-page “About this event” area.
+	// v6.3.0: the event body is now one HTML content field (custom_html) rather than the
+	// separate lead / covers / agenda / facilitator fields. Legacy events that still hold
+	// those meta values keep rendering them (the data bridge reads them directly); new
+	// events author everything as HTML in the one content box.
 }
 /* Which fields live in the side "Date & time" box. Sourced from the box map. */
 function aosev_schedule_keys() { $m = aosev_box_map(); return $m['schedule']; }
@@ -1097,8 +1096,8 @@ function aosev_schedule_keys() { $m = aosev_box_map(); return $m['schedule']; }
    the page content. Discoverability beats a flat list. */
 function aosev_field_groups() {
 	return array(
+		__( '📝 Event content (HTML)', 'aosars-events' )  => array( 'custom_html' ),
 		__( '🃏 Event card (grid)', 'aosars-events' )    => array( 'icon', 'summary' ),
-		__( '📄 Single-page sections (blank = hidden)', 'aosars-events' ) => array( 'lead', 'covers', 'agenda', 'facil_name', 'facil_bio', 'custom_html' ),
 		__( '⚙ Display', 'aosars-events' )               => array( 'use_builder' ),
 	);
 }
@@ -1133,7 +1132,7 @@ function aosev_field_html( $k, $def, $v ) {
 			echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 		}
 	} elseif ( 'code' === $t ) {
-		echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" rows="8" spellcheck="false" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:170px;white-space:pre">' . esc_textarea( $v ) . '</textarea>';
+		echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '" rows="14" spellcheck="false" placeholder="&lt;h2&gt;What this session covers&lt;/h2&gt;&#10;&lt;p&gt;A hands-on masterclass…&lt;/p&gt;&#10;&lt;ul&gt;&#10;  &lt;li&gt;Frame a focused research question&lt;/li&gt;&#10;&lt;/ul&gt;" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:300px;white-space:pre;line-height:1.5">' . esc_textarea( $v ) . '</textarea>';
 	} elseif ( 'textarea' === $t || 'lines' === $t ) {
 		echo '<textarea id="aosev_' . esc_attr( $k ) . '" name="aosev_' . esc_attr( $k ) . '">' . esc_textarea( $v ) . '</textarea>';
 	} else {
@@ -1189,9 +1188,9 @@ function aosev_box_html( $post ) {
 	.aosev-mb .aosev-note{font-size:12px;color:#50575e;margin:0 0 8px}
 	.aosev-mb .aosev-fieldnote{font-size:11px;color:#646970;margin:2px 0 0}
 	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
-	echo '<p class="aosev-note">' . esc_html__( 'The date, join link, cost and capacity are in the sidebar boxes on the right. This box holds the page content — all of it optional.', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-note">' . esc_html__( 'The date, join link, cost and capacity are in the sidebar boxes on the right. Here you write the event body as HTML — headings, lists, tables, images, even an embedded video — and it renders as the “About this event” section. All optional; leave the content box blank to use the WordPress editor / Elementor instead.', 'aosars-events' ) . '</p>';
 	$fields = aosev_fields();
-	$wide   = array( 'summary', 'lead', 'covers', 'agenda', 'facil_bio', 'custom_html', 'use_builder', 'link_private' );
+	$wide   = array( 'summary', 'custom_html', 'use_builder' );
 	foreach ( aosev_field_groups() as $heading => $keys ) {
 		echo '<div class="aosev-grp"><h3>' . esc_html( $heading ) . '</h3>';
 		$cols = array_diff( $keys, $wide );

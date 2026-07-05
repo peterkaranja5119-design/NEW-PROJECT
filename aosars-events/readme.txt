@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.2.0
+Stable tag: 6.3.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,11 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.3.0 =
+* Event details are now written as one HTML content field instead of the separate Lead paragraph / What you'll cover / Agenda / Facilitator fields. The 📝 Event details box leads with a large "Event content" code area where you write or paste HTML — headings, lists, tables, images, even an embedded video — and it renders as the event's "About this event" section with the AOSARS typography. Full control, one place.
+* The sidebar boxes (Date & time, How to attend, Register & cost) are unchanged, so the date, countdown and Join button keep working exactly as before.
+* Backward compatible: events created earlier that still hold Lead/Covers/Agenda/Facilitator values keep displaying them — the page reads those directly. New events use the single HTML content field.
 
 = 6.2.0 =
 * Data entry rebuilt, benchmarked against Modern Events Calendar. The old two-box screen is replaced by a cleaner four-box layout ("Sidebar schedule + main details", the approved mockup #4): three compact cards pinned in the sidebar — 📅 Date & time, 📍 How to attend, 🎟 Register & cost — plus a roomy 📝 Event details box in the main column. The two things that used to go missing (the date and the join link) are now pinned in the sidebar where they can't be overlooked.
