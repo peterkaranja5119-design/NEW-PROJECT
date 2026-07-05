@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.3.0
+Stable tag: 6.4.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,15 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.4.0 =
+* Hardening pass from an independent multi-engineer code review (four independent rewrites, diffed and reconciled). Ten backward-compatible fixes, no data-model change:
+* Structured data (SEO) timezone fix — the schema.org JSON-LD start/end now go through the plugin's timezone conversion, so a 14:00 EAT event is published to search engines as 14:00+03:00 instead of 3 hours late. Hybrid events now use the correct MixedEventAttendanceMode.
+* Save hardening — crafted array-shaped input can no longer abort a save mid-way; select fields (format/platform) are whitelisted; a malformed date keeps the previously stored value instead of wiping it; a checkbox is never silently cleared when its box wasn't on screen.
+* Admin list — sorting by the "When" column no longer drops events that have no date (they stay listed), and the column now shows the time in the event's own timezone with its zone label.
+* The events data feed now guards against re-entrancy (an event body embedding the events shortcode can't recurse), caches within a request, and builds the Google Meet link safely from the code field.
+* The inline data payload is encoded defensively so one event with an odd character can never blank the whole portal.
+* The render-time self-heal now only writes to the database for logged-in editors (never on an anonymous visit); timezone conversion falls back to EAT on a bad zone; and the Elementor save path carries an extra capability check.
 
 = 6.3.0 =
 * Event details are now written as one HTML content field instead of the separate Lead paragraph / What you'll cover / Agenda / Facilitator fields. The 📝 Event details box leads with a large "Event content" code area where you write or paste HTML — headings, lists, tables, images, even an embedded video — and it renders as the event's "About this event" section with the AOSARS typography. Full control, one place.

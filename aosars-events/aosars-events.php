@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.3.0
+ * Version:           6.4.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.3.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.4.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.3.0' );
+define( 'AOSEV_VER', '6.4.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -938,8 +938,23 @@ function aosev_admin_columns( $cols ) {
 add_action( 'manage_aosars_event_posts_custom_column', aosev_guard( 'aosev_admin_column_value' ), 10, 2 );
 function aosev_admin_column_value( $col, $post_id ) {
 	if ( 'aosev_when' === $col ) {
-		$s = get_post_meta( $post_id, '_aosev_start', true );
-		echo $s ? esc_html( date_i18n( 'D, j M Y H:i', strtotime( $s ) ) ) : '&mdash;';
+		$s = trim( (string) get_post_meta( $post_id, '_aosev_start', true ) );
+		if ( '' === $s ) { echo '&mdash;'; return; }
+		$tz = (string) get_post_meta( $post_id, '_aosev_tzone', true );
+		$tz = '' !== $tz ? $tz : 'Africa/Nairobi'; // same legacy default as aosev_ts()
+		$ts = aosev_ts( $s, $tz );
+		if ( ! $ts ) { echo '&mdash;'; return; }
+		try {
+			$zone  = new DateTimeZone( $tz );
+			$zones = aosev_timezones();
+			$lab   = isset( $zones[ $tz ] ) ? trim( strtok( $zones[ $tz ], ' ' ) ) : '';
+			// wp_date() renders the instant as wall-clock in the EVENT's own zone (WP 5.3+),
+			// so the column agrees with the meta box and the front-end countdown.
+			echo esc_html( trim( wp_date( 'D, j M Y H:i', $ts, $zone ) . ' ' . $lab ) );
+		} catch ( \Throwable $e ) {
+			$t = strtotime( $s );
+			echo $t ? esc_html( date_i18n( 'D, j M Y H:i', $t ) ) : '&mdash;';
+		}
 	} elseif ( 'aosev_mode' === $col ) {
 		$m = get_post_meta( $post_id, '_aosev_mode', true );
 		echo $m ? esc_html( $m ) : '&mdash;';
@@ -950,8 +965,17 @@ function aosev_sortable_columns( $c ) { $c['aosev_when'] = 'aosev_when'; return 
 add_action( 'pre_get_posts', aosev_guard( 'aosev_admin_orderby' ) );
 function aosev_admin_orderby( $q ) {
 	if ( ! is_admin() || ! $q->is_main_query() || 'aosev_when' !== $q->get( 'orderby' ) ) { return; }
-	$q->set( 'meta_key', '_aosev_start' );
-	$q->set( 'orderby', 'meta_value' );
+	// A plain meta_key sort INNER-JOINs postmeta and silently drops every event with no
+	// _aosev_start — the exact trap aosev_json_events() documents avoiding. EXISTS/NOT EXISTS
+	// forces LEFT-JOIN semantics: undated events stay in the list, grouped together. The
+	// stored 'Y-m-d\TH:i' strings sort lexicographically = chronologically.
+	$q->set( 'meta_query', array(
+		'relation'      => 'OR',
+		'aosev_start'   => array( 'key' => '_aosev_start', 'compare' => 'EXISTS' ),
+		'aosev_nostart' => array( 'key' => '_aosev_start', 'compare' => 'NOT EXISTS' ),
+	) );
+	$order = strtoupper( (string) $q->get( 'order' ) );
+	$q->set( 'orderby', array( 'aosev_start' => ( 'ASC' === $order ? 'ASC' : 'DESC' ) ) );
 }
 register_activation_hook( __FILE__, 'aosev_activate' );
 function aosev_activate() {
@@ -1254,13 +1278,37 @@ function aosev_save( $post_id, $post ) {
 	if ( ! isset( $_POST['aosev_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['aosev_nonce'] ) ), 'aosev_save' ) ) { return; }
 	if ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) { return; }
 	if ( ! current_user_can( 'edit_post', $post_id ) ) { return; }
+	// An unchecked checkbox is absent from $_POST — but so is a checkbox whose whole meta box
+	// was not rendered this request (Screen Options, or a save flow carrying our nonce but not
+	// our inputs). Only resolve a checkbox when at least one sibling field of its OWN box was
+	// posted, i.e. the box really rendered. Every box has always-posting text/select siblings.
+	$box_of = array(); $box_posted = array();
+	foreach ( aosev_box_map() as $box => $keys ) {
+		$box_posted[ $box ] = false;
+		foreach ( $keys as $bk ) {
+			$box_of[ $bk ] = $box;
+			if ( isset( $_POST[ 'aosev_' . $bk ] ) ) { $box_posted[ $box ] = true; }
+		}
+	}
 	foreach ( aosev_fields() as $k => $def ) {
 		$name = 'aosev_' . $k;
-		if ( 'checkbox' === $def[0] ) { update_post_meta( $post_id, '_aosev_' . $k, empty( $_POST[ $name ] ) ? '' : '1' ); continue; } // unchecked = absent, so always resolve
+		if ( 'checkbox' === $def[0] ) {
+			$box = isset( $box_of[ $k ] ) ? $box_of[ $k ] : '';
+			if ( '' !== $box && empty( $box_posted[ $box ] ) ) { continue; } // box absent this request: keep stored value
+			update_post_meta( $post_id, '_aosev_' . $k, empty( $_POST[ $name ] ) ? '' : '1' );
+			continue;
+		}
 		if ( ! isset( $_POST[ $name ] ) ) { continue; }
 		$raw = wp_unslash( $_POST[ $name ] );
+		if ( ! is_scalar( $raw ) ) { continue; } // crafted array/object input never reaches the string sanitizers (no PHP 8 TypeError, no partial save)
+		$raw = (string) $raw;
 		if ( 'url' === $def[0] ) { $val = esc_url_raw( $raw ); }
+		elseif ( 'datetime-local' === $def[0] ) {
+			$val = aosev_clean_dt( $raw );
+			if ( '' === $val && '' !== trim( $raw ) ) { continue; } // malformed non-empty: keep the stored date, never wipe it
+		}
 		elseif ( 'tzselect' === $def[0] ) { $val = array_key_exists( $raw, aosev_timezones() ) ? $raw : ''; }
+		elseif ( 'select' === $def[0] ) { $val = ( '' === $raw || ( isset( $def[2] ) && in_array( $raw, (array) $def[2], true ) ) ) ? $raw : ''; } // closed vocabulary; '' keeps the empty option
 		elseif ( 'code' === $def[0] ) { $val = current_user_can( 'unfiltered_html' ) ? $raw : wp_kses_post( $raw ); } // raw HTML for capable users, like the Custom HTML block
 		elseif ( 'html' === $def[0] ) { $val = wp_kses_post( $raw ); }
 		elseif ( 'lines' === $def[0] ) { $val = wp_kses_post( $raw ); } // one item per line; inline HTML allowed
@@ -1269,6 +1317,15 @@ function aosev_save( $post_id, $post ) {
 		else { $val = sanitize_text_field( $raw ); }
 		update_post_meta( $post_id, '_aosev_' . $k, $val );
 	}
+}
+/* Accept exactly what <input type="datetime-local"> submits: '' or Y-m-d\TH:i[:s] (plus the
+   space-separated Elementor variant). The wall-clock string is stored verbatim — timezone
+   interpretation stays in aosev_ts(). Returns '' for malformed input; the caller keeps the
+   previously stored value in that case. */
+function aosev_clean_dt( $raw ) {
+	$raw = trim( str_replace( ' ', 'T', sanitize_text_field( (string) $raw ) ) );
+	if ( '' === $raw ) { return ''; }
+	return preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', $raw ) ? $raw : '';
 }
 
 /* ---- 3. DATA BRIDGE: build the events array the app consumes ---- */
@@ -1283,6 +1340,11 @@ function aosev_strip_empty_p( $html ) {
 function aosev_body_html( $post ) {
 	$c = isset( $post->post_content ) ? trim( (string) $post->post_content ) : '';
 	if ( '' === $c ) { return ''; }
+	// Never expand our OWN shortcodes inside an event body — that would nest the whole app
+	// (CSS + JS + a second AOSEV_DATA payload) inside its own data payload. Longest tags first
+	// so 'aosars_event' cannot eat the prefix of the longer names. Third-party shortcodes are
+	// untouched; strip_shortcodes() is deliberately NOT used because it removes ALL tags.
+	$c = preg_replace( '/\[\/?aosars_(events_portal|events_home|events|event)(\s[^\]]*)?\]/i', '', $c );
 	if ( function_exists( 'do_blocks' ) ) { $c = do_blocks( $c ); }
 	return aosev_strip_empty_p( do_shortcode( wpautop( $c ) ) );
 }
@@ -1298,13 +1360,19 @@ function aosev_rich( $v ) {
 function aosev_ts( $s, $tz ) {
 	$s = trim( (string) $s );
 	if ( '' === $s ) { return 0; }
-	try {
-		$d = new DateTime( $s, new DateTimeZone( $tz ? $tz : 'Africa/Nairobi' ) );
-		return $d->getTimestamp();
-	} catch ( \Throwable $e ) {
-		$t = strtotime( $s );
-		return $t ? $t : 0;
+	// Interpret the wall-clock string in the event's zone; if THAT ZONE is invalid, retry in
+	// the documented EAT default rather than dropping to a server-zone strtotime (which would
+	// silently shift a good date by the zone offset). strtotime remains only for date strings
+	// DateTime itself rejects.
+	foreach ( array( $tz, 'Africa/Nairobi' ) as $zone ) {
+		if ( ! $zone ) { continue; }
+		try {
+			$d = new DateTime( $s, new DateTimeZone( (string) $zone ) );
+			return $d->getTimestamp();
+		} catch ( \Throwable $e ) {} // invalid zone or unparseable date — try the next interpretation
 	}
+	$t = strtotime( $s );
+	return $t ? $t : 0;
 }
 /* One trimmed, non-empty item per line (inline HTML preserved). */
 function aosev_lines( $s ) {
@@ -1322,67 +1390,107 @@ function aosev_agenda_rows( $s ) {
 	return $rows;
 }
 function aosev_json_events( $limit = 200 ) {
+	static $cache = array();
+	static $building = false;
+	// Test/save-hook escape hatch: aosev_json_events('flush') clears the per-request cache so a
+	// long-lived process (unit harness, or a save that later renders) sees fresh data.
+	if ( 'flush' === $limit ) { $cache = array(); $building = false; return array( array(), array() ); }
+	// Re-entrancy guard: an event body that (via shortcode/blocks) re-enters the bridge gets
+	// an empty payload instead of unbounded recursion -> stack/memory fatal.
+	if ( $building ) { return array( array(), array() ); }
+	if ( isset( $cache[ $limit ] ) ) { return $cache[ $limit ]; }
+	$building = true;
 	$rows = array(); $meets = array();
-	// Do NOT order by the _aosev_start meta here: that adds an INNER JOIN which would
-	// silently drop any event missing the meta key. Fetch all published events and let
-	// the app sort by start date (soonest()).
-	$q = new WP_Query( array(
-		'post_type' => 'aosars_event', 'post_status' => 'publish', 'posts_per_page' => $limit,
-		'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true,
-	) );
-	foreach ( (array) $q->posts as $p ) {
-		$id = $p->ID;
-		$els = get_post_meta( $id, '_elementor_page_settings', true );
-		$els = is_array( $els ) ? $els : array();
-		$g  = function ( $k ) use ( $id, $els ) {
-			$v = (string) get_post_meta( $id, '_aosev_' . $k, true );
-			if ( '' !== $v || ! in_array( $k, aosev_el_sync_keys(), true ) ) { return $v; }
-			return aosev_elementor_fallback( $id, $k, $els );
-		};
-		$etz   = $g( 'tzone' );
-		$start = aosev_ts( $g( 'start' ), $etz );
-		$end   = aosev_ts( $g( 'end' ), $etz );
-		$durH  = ( $start && $end && $end > $start ) ? round( ( $end - $start ) / 3600, 2 ) : 2;
-		$mode  = $g( 'mode' ) ? $g( 'mode' ) : 'Online';
-		$m     = ( 'In-person' === $mode ) ? 'm-person' : ( ( 'Hybrid' === $mode ) ? 'm-hybrid' : 'm-virtual' );
-		$cap   = $g( 'capacity' );
-		$terms = get_the_terms( $id, 'aosars_event_cat' );
-		$cat   = ( $terms && ! is_wp_error( $terms ) ) ? $terms[0]->name : __( 'Event', 'aosars-events' );
-		$rows[] = array(
-			'id' => $id, 't' => get_the_title( $id ), 'cat' => $cat, 'mode' => $mode, 'm' => $m,
-			'icon' => $g( 'icon' ) ? $g( 'icon' ) : '&#128197;', 'venue' => $g( 'venue' ) ? $g( 'venue' ) : 'Google Meet',
-			'fee' => $g( 'fee' ) ? $g( 'fee' ) : 'Free', 'img' => has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : '',
-			'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
-			'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
-			'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : get_the_excerpt( $id ) ),
-			'blurb' => wp_strip_all_tags( $g( 'summary' ) ? $g( 'summary' ) : ( $g( 'lead' ) ? $g( 'lead' ) : get_the_excerpt( $id ) ) ),
-			'addr' => $g( 'address' ),
-			'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
-			'body'   => aosev_body_html( $p ),
-			'leadH'  => aosev_rich( $g( 'lead' ) ),
-			'covers' => aosev_lines( $g( 'covers' ) ),
-			'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
-			'facilName' => $g( 'facil_name' ),
-			'facilBio'  => aosev_rich( $g( 'facil_bio' ) ),
-			'customHtml' => (string) $g( 'custom_html' ),
-			'org' => $g( 'organiser' ) ? $g( 'organiser' ) : 'AOSARS',
-			'pub' => isset( $p->post_date_gmt ) && $p->post_date_gmt ? strtotime( $p->post_date_gmt . ' UTC' ) * 1000 : 0,
-			'platform'    => $g( 'platform' ) ? $g( 'platform' ) : 'Google Meet',
-			'joinUrl'     => $g( 'join_url' ) ? $g( 'join_url' ) : ( $g( 'code' ) ? 'https://meet.google.com/' . $g( 'code' ) : '' ),
-			'linkPrivate' => (bool) $g( 'link_private' ),
-		);
-		if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
+	try {
+		$sync_keys = aosev_el_sync_keys(); // hoisted: was rebuilt on EVERY field read
+		// Do NOT order by the _aosev_start meta here: that adds an INNER JOIN which would
+		// silently drop any event missing the meta key. Fetch all published events and let
+		// the app sort by start date (soonest()).
+		$q = new WP_Query( array(
+			'post_type' => 'aosars_event', 'post_status' => 'publish', 'posts_per_page' => $limit,
+			'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true,
+		) );
+		foreach ( (array) $q->posts as $p ) {
+			$id  = $p->ID;
+			$els = get_post_meta( $id, '_elementor_page_settings', true );
+			$els = is_array( $els ) ? $els : array();
+			$memo = array();
+			$g = function ( $k ) use ( $id, $els, $sync_keys, &$memo ) {
+				if ( array_key_exists( $k, $memo ) ) { return $memo[ $k ]; }
+				$v = (string) get_post_meta( $id, '_aosev_' . $k, true );
+				if ( '' === $v && in_array( $k, $sync_keys, true ) ) { $v = (string) aosev_elementor_fallback( $id, $k, $els ); }
+				$memo[ $k ] = $v;
+				return $v;
+			};
+			// Lazy excerpt: get_the_excerpt() runs the whole the_content filter chain — compute
+			// it at most once, and only when no summary/lead exists.
+			$excerpt = null;
+			$ex = function () use ( &$excerpt, $id ) {
+				if ( null === $excerpt ) { $excerpt = (string) get_the_excerpt( $id ); }
+				return $excerpt;
+			};
+			$etz   = $g( 'tzone' );
+			$start = aosev_ts( $g( 'start' ), $etz );
+			$end   = aosev_ts( $g( 'end' ), $etz );
+			$durH  = ( $start && $end && $end > $start ) ? round( ( $end - $start ) / 3600, 2 ) : 2;
+			$mode  = $g( 'mode' ) ? $g( 'mode' ) : 'Online';
+			$m     = ( 'In-person' === $mode ) ? 'm-person' : ( ( 'Hybrid' === $mode ) ? 'm-hybrid' : 'm-virtual' );
+			$cap   = $g( 'capacity' );
+			$terms = get_the_terms( $id, 'aosars_event_cat' );
+			$cat   = ( $terms && ! is_wp_error( $terms ) ) ? $terms[0]->name : __( 'Event', 'aosars-events' );
+			$rows[] = array(
+				'id' => $id, 't' => get_the_title( $id ), 'cat' => $cat, 'mode' => $mode, 'm' => $m,
+				'icon' => $g( 'icon' ) ? $g( 'icon' ) : '&#128197;', 'venue' => $g( 'venue' ) ? $g( 'venue' ) : 'Google Meet',
+				'fee' => $g( 'fee' ) ? $g( 'fee' ) : 'Free', 'img' => has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : '',
+				'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
+				'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
+				'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : $ex() ),
+				'blurb' => wp_strip_all_tags( $g( 'summary' ) ? $g( 'summary' ) : ( $g( 'lead' ) ? $g( 'lead' ) : $ex() ) ),
+				'addr' => $g( 'address' ),
+				'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
+				'body'   => aosev_body_html( $p ),
+				'leadH'  => aosev_rich( $g( 'lead' ) ),
+				'covers' => aosev_lines( $g( 'covers' ) ),
+				'agenda' => aosev_agenda_rows( $g( 'agenda' ) ),
+				'facilName' => $g( 'facil_name' ),
+				'facilBio'  => aosev_rich( $g( 'facil_bio' ) ),
+				'customHtml' => (string) $g( 'custom_html' ),
+				'org' => $g( 'organiser' ) ? $g( 'organiser' ) : 'AOSARS',
+				'pub' => isset( $p->post_date_gmt ) && $p->post_date_gmt ? strtotime( $p->post_date_gmt . ' UTC' ) * 1000 : 0,
+				'platform'    => $g( 'platform' ) ? $g( 'platform' ) : 'Google Meet',
+				'joinUrl'     => $g( 'join_url' ) ? $g( 'join_url' ) : aosev_join_from_code( $g( 'code' ) ),
+				'linkPrivate' => (bool) $g( 'link_private' ),
+			);
+			if ( $g( 'code' ) ) { $meets[ $id ] = $g( 'code' ); }
+		}
+		if ( function_exists( 'wp_reset_postdata' ) ) { wp_reset_postdata(); }
+	} finally {
+		$building = false; // never leave the latch set, even if a hook inside throws
 	}
-	if ( function_exists( 'wp_reset_postdata' ) ) { wp_reset_postdata(); }
 	if ( empty( $rows ) ) {
 		// A live site with no published events should show a real empty state, not
 		// demo content. Set the filter to true (or define AOSEV_DEMO) to preview samples.
 		if ( ( defined( 'AOSEV_DEMO' ) && AOSEV_DEMO ) || apply_filters( 'aosev_use_sample_events', false ) ) {
-			return aosev_sample_events();
+			$cache[ $limit ] = aosev_sample_events();
+			return $cache[ $limit ];
 		}
-		return array( array(), array() );
+		$cache[ $limit ] = array( array(), array() );
+		return $cache[ $limit ];
 	}
-	return array( $rows, $meets );
+	$cache[ $limit ] = array( $rows, $meets );
+	return $cache[ $limit ];
+}
+/* Derive a usable join URL from the Meet-code field. Admins commonly paste a full link
+   into the code box — honour it (esc_url_raw) instead of double-prefixing; otherwise strip
+   to Meet-code grammar and compose the URL, esc_url_raw-wrapped so quotes/spaces/control
+   chars from the sanitize_text_field'd code can never smuggle into the href the JS builds.
+   Stored _aosev_code meta is left untouched; the $meets map still carries the raw value. */
+function aosev_join_from_code( $code ) {
+	$code = trim( (string) $code );
+	if ( '' === $code ) { return ''; }
+	if ( preg_match( '#^https?://#i', $code ) ) { return esc_url_raw( $code ); }
+	$slug = strtolower( preg_replace( '/[^A-Za-z0-9\-]/', '', $code ) ); // Meet codes are letters/digits + dashes
+	return '' !== $slug ? esc_url_raw( 'https://meet.google.com/' . $slug ) : '';
 }
 function aosev_sample_events() {
 	$now = time() * 1000; $H = 3600000; $D = 86400000;
@@ -1409,19 +1517,49 @@ function aosev_js() {
 	static $d = false; if ( $d ) { return ''; } $d = true;
 	return "<script id=\"aosev-js\">\n" . AOSEV_JS . "\n</script>";
 }
+/* Encode the app payload for inline <script> injection. Two defenses fold together here:
+   (1) JSON_HEX_TAG|AMP|APOS|QUOT escape <,>,&,'," as \uXXXX inside JSON strings, so raw
+       stored HTML (customHtml is raw for unfiltered_html authors; body is post_content)
+       can never drive the HTML tokenizer into the script-data-double-escaped state via a
+       '<!--<script>' sequence that default slash-escaping does NOT neutralize. JS decodes
+       the escapes identically, so window.AOSEV_DATA is byte-identical after parse.
+   (2) wp_json_encode() returns false on unrepairable UTF-8; a bare false ships
+       'window.AOSEV_DATA=;' — a JS syntax error that blanks the whole portal. Drop only
+       the offending row(s), then degrade to a valid empty payload, never broken JS. */
+function aosev_encode_data( $data ) {
+	$flags = JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+	$json  = wp_json_encode( $data, $flags );
+	if ( ( ! is_string( $json ) || '' === $json ) && isset( $data['events'] ) && is_array( $data['events'] ) ) {
+		$keep = array();
+		foreach ( $data['events'] as $row ) {
+			if ( false !== wp_json_encode( $row, $flags ) ) { $keep[] = $row; }
+		}
+		$data['events'] = $keep;
+		$json = wp_json_encode( $data, $flags );
+	}
+	if ( ! is_string( $json ) || '' === $json ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] wp_json_encode failed; shipping empty payload' ); }
+		if ( is_array( $data ) ) { $data['events'] = array(); }
+		$json = wp_json_encode( $data, $flags );
+	}
+	if ( ! is_string( $json ) || '' === $json ) { $json = '{"events":[]}'; }
+	return $json;
+}
 function aosev_mount( $state = null ) {
 	try {
 		list( $events, $meets ) = aosev_json_events();
 		$set  = aosev_settings();
 		$data = array( 'events' => $events, 'meets' => (object) $meets, 'allUrl' => isset( $set['all_url'] ) ? $set['all_url'] : '' );
 		if ( $state ) { $data['state'] = $state; }
-		$json = wp_json_encode( $data );
 		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_css();
-		$out .= '<script>window.AOSEV_DATA=' . $json . ';</script>';
+		$out .= '<script>window.AOSEV_DATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-app"><main class="wrap" id="AOSEV_ROOT"></main></div>';
 		$out .= aosev_js();
 		return $out;
-	} catch ( \Throwable $e ) { return ''; }
+	} catch ( \Throwable $e ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] mount: ' . $e->getMessage() ); }
+		return '';
+	}
 }
 
 /* ---- 5. SHORTCODES ---- */
@@ -1452,11 +1590,14 @@ function aosev_home_mount() {
 		$s    = aosev_settings();
 		$data = array( 'events' => $events, 'allUrl' => isset( $s['all_url'] ) ? $s['all_url'] : '' );
 		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_home_css();
-		$out .= '<script>window.AOSEV_HDATA=' . wp_json_encode( $data ) . ';</script>';
+		$out .= '<script>window.AOSEV_HDATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-home" id="AOSEV_HOME"></div>';
 		$out .= aosev_home_js();
 		return $out;
-	} catch ( \Throwable $e ) { return ''; }
+	} catch ( \Throwable $e ) {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] home mount: ' . $e->getMessage() ); }
+		return '';
+	}
 }
 function aosev_sc_home( $atts = array() ) { return aosev_home_mount(); }
 add_shortcode( 'aosars_events_home', 'aosev_sc_home' );
@@ -1523,18 +1664,34 @@ add_action( 'wp_head', aosev_guard( 'aosev_schema' ) );
 function aosev_schema() {
 	if ( ! is_singular( 'aosars_event' ) ) { return; }
 	$id = get_the_ID(); if ( ! $id ) { return; }
-	$g = function ( $k ) use ( $id ) { return get_post_meta( $id, '_aosev_' . $k, true ); };
-	$start = $g( 'start' ) ? strtotime( $g( 'start' ) ) : 0;
-	$end   = $g( 'end' ) ? strtotime( $g( 'end' ) ) : 0;
+	$g   = function ( $k ) use ( $id ) { return get_post_meta( $id, '_aosev_' . $k, true ); };
+	$tz    = $g( 'tzone' ) ? (string) $g( 'tzone' ) : 'Africa/Nairobi'; // same legacy default as aosev_ts()
+	$start = aosev_ts( $g( 'start' ), $tz );
+	$end   = aosev_ts( $g( 'end' ), $tz );
 	$mode  = $g( 'mode' ) ? $g( 'mode' ) : 'Online';
+	$modes = array(
+		'Online'    => 'https://schema.org/OnlineEventAttendanceMode',
+		'In-person' => 'https://schema.org/OfflineEventAttendanceMode',
+		'Hybrid'    => 'https://schema.org/MixedEventAttendanceMode',
+	);
 	$data  = array(
 		'@context' => 'https://schema.org', '@type' => 'Event', 'name' => get_the_title( $id ),
-		'startDate' => $start ? gmdate( 'c', $start ) : '', 'endDate' => $end ? gmdate( 'c', $end ) : '',
-		'eventAttendanceMode' => ( 'Online' === $mode ) ? 'https://schema.org/OnlineEventAttendanceMode' : 'https://schema.org/OfflineEventAttendanceMode',
+		'startDate' => $start ? aosev_iso8601( $start, $tz ) : '',
+		'endDate'   => $end ? aosev_iso8601( $end, $tz ) : '',
+		'eventAttendanceMode' => isset( $modes[ $mode ] ) ? $modes[ $mode ] : $modes['Online'],
 		'description' => wp_strip_all_tags( $g( 'lead' ) ? $g( 'lead' ) : $g( 'summary' ) ), 'url' => get_permalink( $id ),
 	);
 	if ( $g( 'venue' ) ) { $data['location'] = ( 'Online' === $mode ) ? array( '@type' => 'VirtualLocation', 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ) ) : array( '@type' => 'Place', 'name' => $g( 'venue' ), 'address' => $g( 'address' ) ); }
 	echo "\n" . '<script type="application/ld+json">' . wp_json_encode( array_filter( $data ) ) . '</script>' . "\n";
+}
+/* Epoch -> ISO 8601 carrying the event zone's own offset (e.g. 2026-01-15T14:00:00+03:00),
+   so the structured data denotes the same instant the front-end countdown shows. */
+function aosev_iso8601( $ts, $tz ) {
+	try {
+		$d = new DateTime( '@' . (int) $ts );
+		$d->setTimezone( new DateTimeZone( $tz ? $tz : 'Africa/Nairobi' ) );
+		return $d->format( 'c' );
+	} catch ( \Throwable $e ) { return gmdate( 'c', (int) $ts ); }
 }
 /* Open Graph / Twitter tags so a shared permalink previews correctly. Skipped when a
    dedicated SEO plugin is active, to avoid duplicate tags. */
@@ -1646,6 +1803,7 @@ function aosev_el_doc_saved( $document, $data = null ) {
 	if ( ! is_object( $document ) || ! method_exists( $document, 'get_main_id' ) ) { return; }
 	$id = (int) $document->get_main_id();
 	if ( 'aosars_event' !== get_post_type( $id ) ) { return; }
+	if ( ! current_user_can( 'edit_post', $id ) ) { return; } // defense-in-depth: hook-driven meta writes verify caps themselves
 	// Prefer the FRESH settings payload of this very save; the document object's own
 	// get_settings() can be stale (initialised before the save) — the live-site Doctor
 	// report showed 'end' persisting while 'start' vanished, the stale-read signature.
@@ -1667,7 +1825,12 @@ function aosev_elementor_fallback( $id, $key, $els ) {
 	if ( ! is_array( $els ) || ! isset( $els[ 'aosev_' . $key ] ) ) { return ''; }
 	$v = aosev_el_clean( $key, $els[ 'aosev_' . $key ] );
 	if ( '' === $v ) { return ''; }
-	update_post_meta( $id, '_aosev_' . $key, $v );
+	// Self-heal (backfill _aosev_* from the Elementor panel value) only when an editor is
+	// looking — an anonymous front-end GET must never write to the database. Anonymous
+	// visitors still SEE the resolved value (returned below); the editor's own visit heals it.
+	if ( is_user_logged_in() && current_user_can( 'edit_post', $id ) ) {
+		update_post_meta( $id, '_aosev_' . $key, $v );
+	}
 	return $v;
 }
 
