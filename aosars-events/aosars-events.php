@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.4.0
+ * Version:           6.5.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.4.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.5.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.4.0' );
+define( 'AOSEV_VER', '6.5.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -907,7 +907,10 @@ function aosev_register_cpt() {
 		'show_in_nav_menus' => true, 'exclude_from_search' => false,
 		'map_meta_cap' => true,
 		'menu_icon' => 'dashicons-calendar-alt', 'menu_position' => 26,
-		'supports' => array( 'title', 'editor', 'thumbnail', 'excerpt', 'custom-fields', 'author', 'comments', 'trackbacks', 'revisions' ),
+		// Deliberately lean: no custom-fields / comments / trackbacks boxes cluttering the
+		// event editor — the four AOSARS boxes ARE the event's fields. Keep title (name),
+		// editor (optional body / Elementor), thumbnail (cover), excerpt, author, revisions.
+		'supports' => array( 'title', 'editor', 'thumbnail', 'excerpt', 'author', 'revisions' ),
 		'rewrite' => array( 'slug' => 'aosars-event' ),
 	) );
 	register_taxonomy( 'aosars_event_cat', 'aosars_event', array(
@@ -921,6 +924,17 @@ function aosev_register_cpt() {
 		'rewrite' => array( 'slug' => 'event-tag' ),
 	) );
 }
+/* Use the CLASSIC editor for events so the four meta boxes render as the agreed design:
+   the 📅 Date & time, 📍 How to attend and 🎟 Register & cost cards in the right sidebar, and
+   the 📝 Event details box (with the HTML content field) prominent in the main column. The
+   block editor (Gutenberg) instead crams side boxes into its narrow panel and hides "normal"
+   boxes in a collapsed drawer at the very bottom, which does NOT match the mockup. */
+add_filter( 'use_block_editor_for_post_type', aosev_guard( 'aosev_force_classic_editor' ), 10, 2 );
+function aosev_force_classic_editor( $use, $post_type ) {
+	return 'aosars_event' === $post_type ? false : $use;
+}
+/* Belt-and-suspenders for older WP / the Classic Editor plugin's filter name. */
+add_filter( 'gutenberg_can_edit_post_type', aosev_guard( 'aosev_force_classic_editor' ), 10, 2 );
 
 /* ---- 1b. Admin list columns, like a Post (When, Mode) ---- */
 add_filter( 'manage_aosars_event_posts_columns', aosev_guard( 'aosev_admin_columns' ) );
@@ -1032,8 +1046,17 @@ add_action( 'add_meta_boxes', aosev_guard( 'aosev_add_box' ) );
 function aosev_add_box() {
 	add_meta_box( 'aosev_schedule', __( '📅 Date & time', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_attend', __( '📍 How to attend', 'aosars-events' ), 'aosev_attend_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
-	add_meta_box( 'aosev_register', __( '🎟 Register & cost', 'aosars-events' ), 'aosev_register_box_html', 'aosars_event', 'side', 'default', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_register', __( '🎟 Register & cost', 'aosars-events' ), 'aosev_register_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_details', __( '📝 Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+}
+/* Strip WordPress's stock clutter boxes from the event screen so only the four AOSARS
+   boxes (plus Publish / Categories / Tags / Featured image) remain — the agreed design.
+   Done here as well as via unsupported features so the screen is clean regardless. */
+add_action( 'add_meta_boxes_aosars_event', aosev_guard( 'aosev_strip_core_boxes' ), 100 );
+function aosev_strip_core_boxes() {
+	foreach ( array( 'postcustom', 'commentsdiv', 'commentstatusdiv', 'trackbacksdiv', 'postexcerpt', 'authordiv', 'slugdiv', 'revisionsdiv', 'formatdiv' ) as $box ) {
+		foreach ( array( 'normal', 'advanced', 'side' ) as $ctx ) { remove_meta_box( $box, 'aosars_event', $ctx ); }
+	}
 }
 /* Single source of truth for which field lives in which box (MEC-benchmarked grouping). */
 function aosev_box_map() {
