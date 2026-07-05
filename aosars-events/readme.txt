@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.5.0
+Stable tag: 6.6.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,11 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.6.0 =
+* FIX: the entered date/time (and the countdown and Join button) did not appear on the single event page for events that had only a date and no summary/lead text. Cause: while building the page data the plugin briefly rendered the post excerpt, which re-entered the content filter and consumed the one-time slots that emit the app's stylesheet and script — so the page shipped the data but not the script that draws the countdown. The stylesheet/script are now claimed before the data is built, and a render guard stops the excerpt from re-entering the renderer. Diagnosed by an independent 5-investigator review and verified end to end in a real WordPress install (the date, live countdown and Join button now render).
+* Date entry is more forgiving: values with a trailing "Z", fractional seconds, or single-digit month/day/hour are now accepted and normalised instead of being rejected. Dates typed into the Elementor panel are validated the same way as the meta box.
+* Note: if an event still shows no date, check that the per-event "Design THIS event page in Elementor / the theme instead of the AOSARS layout" box is unticked — with it ticked the AOSARS dated layout is intentionally not rendered.
 
 = 6.5.0 =
 * The event editor now renders the agreed four-box design for real. Events open in the CLASSIC editor (not the block editor), so the 📅 Date & time, 📍 How to attend and 🎟 Register & cost cards sit together in the right sidebar and the 📝 Event details box — with the HTML content field — is prominent in the main column. In the block editor these boxes were cramped into a narrow panel and the content box was hidden in a collapsed drawer at the very bottom.

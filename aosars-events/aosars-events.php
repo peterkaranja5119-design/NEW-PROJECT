@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.5.0
+ * Version:           6.6.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.5.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.6.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.5.0' );
+define( 'AOSEV_VER', '6.6.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -1348,7 +1348,14 @@ function aosev_save( $post_id, $post ) {
 function aosev_clean_dt( $raw ) {
 	$raw = trim( str_replace( ' ', 'T', sanitize_text_field( (string) $raw ) ) );
 	if ( '' === $raw ) { return ''; }
-	return preg_match( '/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2})?$/', $raw ) ? $raw : '';
+	$raw = preg_replace( '/(\.\d+)?Z?$/', '', $raw ); // tolerate a trailing Z and fractional seconds
+	// Accept unpadded month/day/hour too (some pickers submit them) and normalise to Y-m-d\TH:i[:s].
+	if ( preg_match( '/^(\d{4})-(\d{1,2})-(\d{1,2})T(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $raw, $m ) ) {
+		$out = sprintf( '%04d-%02d-%02dT%02d:%02d', $m[1], $m[2], $m[3], $m[4], $m[5] );
+		if ( isset( $m[6] ) && '' !== $m[6] ) { $out .= ':' . sprintf( '%02d', $m[6] ); }
+		return $out;
+	}
+	return '';
 }
 
 /* ---- 3. DATA BRIDGE: build the events array the app consumes ---- */
@@ -1412,17 +1419,26 @@ function aosev_agenda_rows( $s ) {
 	}
 	return $rows;
 }
+/* True while aosev_json_events() is building its rows. aosev_append_single() checks this so a
+   lazy get_the_excerpt() during the build cannot re-enter the_content -> mount -> full app
+   render (which would consume the one-shot CSS/JS and pollute the excerpt with app markup). */
+function aosev_rendering( $set = null ) {
+	static $on = false;
+	if ( null !== $set ) { $on = (bool) $set; }
+	return $on;
+}
 function aosev_json_events( $limit = 200 ) {
 	static $cache = array();
 	static $building = false;
 	// Test/save-hook escape hatch: aosev_json_events('flush') clears the per-request cache so a
 	// long-lived process (unit harness, or a save that later renders) sees fresh data.
-	if ( 'flush' === $limit ) { $cache = array(); $building = false; return array( array(), array() ); }
+	if ( 'flush' === $limit ) { $cache = array(); $building = false; aosev_rendering( false ); return array( array(), array() ); }
 	// Re-entrancy guard: an event body that (via shortcode/blocks) re-enters the bridge gets
 	// an empty payload instead of unbounded recursion -> stack/memory fatal.
 	if ( $building ) { return array( array(), array() ); }
 	if ( isset( $cache[ $limit ] ) ) { return $cache[ $limit ]; }
 	$building = true;
+	aosev_rendering( true ); // block the_content re-injection while we build (esp. lazy get_the_excerpt)
 	$rows = array(); $meets = array();
 	try {
 		$sync_keys = aosev_el_sync_keys(); // hoisted: was rebuilt on EVERY field read
@@ -1489,6 +1505,7 @@ function aosev_json_events( $limit = 200 ) {
 		if ( function_exists( 'wp_reset_postdata' ) ) { wp_reset_postdata(); }
 	} finally {
 		$building = false; // never leave the latch set, even if a hook inside throws
+		aosev_rendering( false );
 	}
 	if ( empty( $rows ) ) {
 		// A live site with no published events should show a real empty state, not
@@ -1570,14 +1587,22 @@ function aosev_encode_data( $data ) {
 }
 function aosev_mount( $state = null ) {
 	try {
+		// Claim the one-shot CSS/JS slots BEFORE aosev_json_events(): that call may lazily run
+		// get_the_excerpt() on a single event page, which re-enters the_content ->
+		// aosev_append_single -> aosev_mount and would otherwise consume the one-shot static
+		// flags in aosev_css()/aosev_js(), leaving the real page with #AOSEV_ROOT but no
+		// mounting JS (the "date/countdown never shows" bug). aosev_css()/aosev_js() are called
+		// from nowhere else, so this reorder is safe and the emitted order is unchanged.
+		$css = aosev_css();
+		$js  = aosev_js();
 		list( $events, $meets ) = aosev_json_events();
 		$set  = aosev_settings();
 		$data = array( 'events' => $events, 'meets' => (object) $meets, 'allUrl' => isset( $set['all_url'] ) ? $set['all_url'] : '' );
 		if ( $state ) { $data['state'] = $state; }
-		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_css();
+		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . $css;
 		$out .= '<script>window.AOSEV_DATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-app"><main class="wrap" id="AOSEV_ROOT"></main></div>';
-		$out .= aosev_js();
+		$out .= $js;
 		return $out;
 	} catch ( \Throwable $e ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] mount: ' . $e->getMessage() ); }
@@ -1609,13 +1634,15 @@ function aosev_home_js() {
 }
 function aosev_home_mount() {
 	try {
+		$css = aosev_home_css(); // claim one-shot slots before json_events (see aosev_mount note)
+		$js  = aosev_home_js();
 		list( $events, $meets ) = aosev_json_events();
 		$s    = aosev_settings();
 		$data = array( 'events' => $events, 'allUrl' => isset( $s['all_url'] ) ? $s['all_url'] : '' );
-		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . aosev_home_css();
+		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . $css;
 		$out .= '<script>window.AOSEV_HDATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-home" id="AOSEV_HOME"></div>';
-		$out .= aosev_home_js();
+		$out .= $js;
 		return $out;
 	} catch ( \Throwable $e ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] home mount: ' . $e->getMessage() ); }
@@ -1670,6 +1697,7 @@ function aosev_single_takeover() {
 add_filter( 'the_content', aosev_guard( 'aosev_append_single' ), 20 );
 function aosev_append_single( $content ) {
 	if ( is_admin() || ! is_singular( 'aosars_event' ) || ! in_the_loop() || ! is_main_query() ) { return $content; }
+	if ( aosev_rendering() ) { return $content; } // building the data payload (e.g. a lazy excerpt) — do NOT inject
 	if ( false !== strpos( $content, 'aosev-app' ) ) { return $content; }
 	if ( aosev_is_builder_edit_context() ) { return $content; } // let the Elementor editor edit the real content
 	$s = aosev_settings();
@@ -1816,7 +1844,7 @@ function aosev_el_clean( $key, $v ) {
 	if ( is_array( $v ) || null === $v ) { return ''; }
 	$v = (string) $v;
 	if ( '' === trim( $v ) ) { return ''; }
-	if ( 'start' === $key || 'end' === $key ) { return sanitize_text_field( str_replace( ' ', 'T', $v ) ); }
+	if ( 'start' === $key || 'end' === $key ) { return aosev_clean_dt( $v ); } // validate typed (allowInput) dates too
 	if ( 'tzone' === $key ) { return array_key_exists( $v, aosev_timezones() ) ? $v : ''; }
 	if ( 'join_url' === $key ) { return esc_url_raw( $v ); }
 	return sanitize_text_field( $v );
