@@ -1,0 +1,116 @@
+/* Simple Events front-end styles */
+
+.simple-events-list {
+	list-style: none;
+	margin: 0 0 1.5em;
+	padding: 0;
+}
+
+.simple-events-item {
+	border-bottom: 1px solid #e5e5e5;
+	padding: 1em 0;
+}
+
+.simple-events-item:last-child {
+	border-bottom: 0;
+}
+
+.simple-events-title {
+	margin: 0 0 .25em;
+	font-size: 1.15em;
+}
+
+.simple-events-date,
+.simple-events-venue {
+	color: #555;
+	font-size: .9em;
+	margin: .15em 0;
+	display: flex;
+	align-items: center;
+	gap: .35em;
+}
+
+.simple-events-date .dashicons,
+.simple-events-venue .dashicons {
+	font-size: 1.1em;
+	width: 1.1em;
+	height: 1.1em;
+}
+
+.simple-events-excerpt {
+	margin-top: .5em;
+}
+
+.simple-events-empty {
+	color: #777;
+	font-style: italic;
+}
+
+/* Single event details box */
+.simple-events-details {
+	background: #f7f7f7;
+	border: 1px solid #e5e5e5;
+	border-radius: 4px;
+	padding: 1em 1.25em;
+	margin: 0 0 1.5em;
+}
+
+.simple-events-details-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.simple-events-details-list li {
+	margin: .35em 0;
+}
+
+.simple-events-details-list strong {
+	display: inline-block;
+	min-width: 5em;
+}
+
+.simple-events-add-to-calendar {
+	margin: 1em 0 0;
+}
+
+.simple-events-ics-link {
+	display: inline-flex;
+	align-items: center;
+	gap: .35em;
+	text-decoration: none;
+	font-weight: 600;
+}
+
+.simple-events-map {
+	margin-top: 1em;
+	line-height: 0;
+}
+
+.simple-events-map iframe {
+	max-width: 100%;
+	border-radius: 4px;
+}
+
+/* Widget */
+.simple-events-widget-list {
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.simple-events-widget-list li {
+	margin: 0 0 .75em;
+	padding: 0 0 .75em;
+	border-bottom: 1px solid #eee;
+}
+
+.simple-events-widget-list li:last-child {
+	border-bottom: 0;
+}
+
+.simple-events-widget-date {
+	display: block;
+	color: #777;
+	font-size: .85em;
+}
