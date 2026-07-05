@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.7.1
+ * Version:           6.8.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.7.1) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.8.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.7.1' );
+define( 'AOSEV_VER', '6.8.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -1079,9 +1079,21 @@ function aosev_receipt_notice() {
 	if ( ! $sc || 'aosars_event' !== $sc->post_type ) { return; }
 	$id = isset( $_GET['post'] ) ? (int) $_GET['post'] : 0; // phpcs:ignore WordPress.Security.NonceVerification
 	if ( ! $id ) { return; }
-	$r = get_transient( 'aosev_receipt_' . $id );
-	if ( ! is_array( $r ) || empty( $r['outcome'] ) ) { return; }
-	delete_transient( 'aosev_receipt_' . $id );
+	$r     = get_transient( 'aosev_receipt_' . $id );
+	$stale = false;
+	if ( ! is_array( $r ) || empty( $r['outcome'] ) ) {
+		// No fresh receipt — fall back to the permanent flight-recorder copy, so the LAST
+		// save's outcome stays visible on the edit screen no matter when you look.
+		$r     = get_post_meta( $id, '_aosev_last_save', true );
+		$stale = true;
+		if ( ! is_array( $r ) || empty( $r['outcome'] ) ) { return; }
+	} else {
+		delete_transient( 'aosev_receipt_' . $id );
+	}
+	$ago = '';
+	if ( $stale && ! empty( $r['t'] ) && function_exists( 'human_time_diff' ) ) {
+		$ago = ' <em>(' . esc_html( sprintf( __( 'last save, %s ago', 'aosars-events' ), human_time_diff( (int) $r['t'], time() ) ) ) . ')</em>';
+	}
 	if ( 'ok' === $r['outcome'] ) {
 		$bits = array();
 		if ( isset( $r['stored']['start'] ) && '' !== $r['stored']['start'] ) {
@@ -1098,14 +1110,14 @@ function aosev_receipt_notice() {
 		if ( ! empty( $r['skipped']['start'] ) ) { $bits[] = sprintf( __( 'Start value “%s” was not understood — previous date kept.', 'aosars-events' ), $r['skipped']['start'] ); }
 		if ( empty( $bits ) ) { $bits[] = __( 'Event fields received and saved.', 'aosars-events' ); }
 		$extra = ! empty( $r['recovered'] ) ? ' <strong>' . esc_html__( '(Recovered via the backup channel — your hosting appears to strip form fields; the plugin worked around it.)', 'aosars-events' ) . '</strong>' : '';
-		echo '<div class="notice notice-success"><p><strong>AOSARS Events ✓</strong> — ' . esc_html( implode( ' ', $bits ) ) . $extra . '</p></div>';
+		echo '<div class="notice notice-success"><p><strong>AOSARS Events ✓</strong> — ' . esc_html( implode( ' ', $bits ) ) . $extra . $ago . '</p></div>';
 	} elseif ( 'no-fields' === $r['outcome'] ) {
-		echo '<div class="notice notice-error"><p><strong>AOSARS Events ⚠</strong> — ' . esc_html__( 'The last save of this event arrived WITHOUT the event fields (date, join link, …), so none of them were changed. This happens when the event is saved from a screen that does not include the AOSARS boxes (e.g. Quick Edit, or Elementor’s Update button without using the ⚙ AOSARS Event details panel). To set the date: open this normal edit screen, fill “Start date & time” in the 📅 Date & time box on the right, and click Update.', 'aosars-events' ) . '</p></div>';
+		echo '<div class="notice notice-error"><p><strong>AOSARS Events ⚠</strong> — ' . esc_html__( 'The last save of this event arrived WITHOUT the event fields (date, join link, …), so none of them were changed. This happens when the event is saved from a screen that does not include the AOSARS boxes (e.g. Quick Edit, or Elementor’s Update button without using the ⚙ AOSARS Event details panel). To set the date: open this normal edit screen, fill “Start date & time” in the 📅 Date & time box on the right, and click Update.', 'aosars-events' ) . $ago . '</p></div>';
 	} elseif ( 'elementor-sync' === $r['outcome'] ) {
 		$msg = ! empty( $r['stored']['start'] )
 			? sprintf( __( 'Elementor panel synced — date & time saved: %s.', 'aosars-events' ), $r['stored']['start'] )
 			: __( 'Elementor save synced, but NO start date was in the panel. Set it in Elementor under ⚙ Page/Post Settings → “📅 AOSARS Event details”, or on this screen in the 📅 Date & time box.', 'aosars-events' );
-		echo '<div class="notice ' . ( ! empty( $r['stored']['start'] ) ? 'notice-success' : 'notice-warning' ) . '"><p><strong>AOSARS Events</strong> — ' . esc_html( $msg ) . '</p></div>';
+		echo '<div class="notice ' . ( ! empty( $r['stored']['start'] ) ? 'notice-success' : 'notice-warning' ) . '"><p><strong>AOSARS Events</strong> — ' . esc_html( $msg ) . $ago . '</p></div>';
 	}
 }
 /* Flag events with no start date on the edit screen, so an unset date is impossible to miss. */
@@ -1429,17 +1441,27 @@ function aosev_save( $post_id, $post ) {
 			$recovered = true;
 		}
 	}
-	// SAVE RECEIPT: record exactly what this save delivered, so a failing entry flow on a live
-	// site becomes a readable admin notice instead of a silent mystery (see aosev_receipt_notice).
-	$receipt = array( 't' => time(), 'outcome' => '', 'recovered' => $recovered, 'stored' => array(), 'skipped' => array() );
+	// SAVE RECEIPT / FLIGHT RECORDER: record exactly what this save delivered — which aosev_*
+	// keys the request contained, the RAW start value seen, what was stored or rejected, the
+	// request type and browser. Shown as an admin notice AND persisted per-event so a failing
+	// entry flow on a live site is diagnosable after the fact (Settings → Diagnostics).
+	$seen = array();
+	foreach ( array_keys( $src ) as $sk ) { if ( 0 === strpos( (string) $sk, 'aosev_' ) && 'aosev_nonce' !== $sk ) { $seen[] = substr( (string) $sk, 6 ); } }
+	$receipt = array(
+		't' => time(), 'outcome' => '', 'recovered' => $recovered, 'stored' => array(), 'skipped' => array(),
+		'seen'      => array_slice( $seen, 0, 30 ),
+		'raw_start' => isset( $src['aosev_start'] ) && is_scalar( $src['aosev_start'] ) ? mb_substr( (string) $src['aosev_start'], 0, 40 ) : null,
+		'via'       => ( defined( 'DOING_AJAX' ) && DOING_AJAX ) ? 'ajax:' . ( isset( $_REQUEST['action'] ) ? mb_substr( sanitize_text_field( wp_unslash( $_REQUEST['action'] ) ), 0, 24 ) : '?' ) : 'post',
+		'ua'        => isset( $_SERVER['HTTP_USER_AGENT'] ) ? mb_substr( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ), 0, 120 ) : '',
+	);
 	$is_real = ! ( defined( 'DOING_CRON' ) && DOING_CRON ) && ( ! function_exists( 'get_post_status' ) || 'auto-draft' !== get_post_status( $post_id ) );
 	if ( ! isset( $src['aosev_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $src['aosev_nonce'] ) ), 'aosev_save' ) ) {
 		// This save carried NONE of our fields (quick edit, a programmatic save, an Elementor
 		// AJAX save — its own sync runs separately — or a request whose fields were stripped
 		// with no mirror). Nothing is changed; leave a receipt saying so.
-		if ( $is_real && function_exists( 'set_transient' ) ) {
+		if ( $is_real ) {
 			$receipt['outcome'] = 'no-fields';
-			set_transient( 'aosev_receipt_' . $post_id, $receipt, 600 );
+			aosev_receipt_store( $post_id, $receipt );
 		}
 		return;
 	}
@@ -1486,15 +1508,24 @@ function aosev_save( $post_id, $post ) {
 			$receipt['stored'][ $k ] = mb_substr( (string) $val, 0, 80 );
 		}
 	}
-	if ( $is_real && function_exists( 'set_transient' ) ) {
+	if ( $is_real ) {
 		$receipt['outcome'] = 'ok';
-		set_transient( 'aosev_receipt_' . $post_id, $receipt, 600 );
+		aosev_receipt_store( $post_id, $receipt );
 	}
 }
+/* Persist a save receipt twice: a short transient (drives the immediate admin notice) and a
+   PERMANENT per-event copy (_aosev_last_save) so the last save stays diagnosable after the
+   fact — surfaced on the edit screen and in Settings → Diagnostics (the flight recorder). */
+function aosev_receipt_store( $post_id, $receipt ) {
+	if ( function_exists( 'set_transient' ) ) { set_transient( 'aosev_receipt_' . $post_id, $receipt, 600 ); }
+	update_post_meta( $post_id, '_aosev_last_save', $receipt );
+}
 /* Accept exactly what <input type="datetime-local"> submits: '' or Y-m-d\TH:i[:s] (plus the
-   space-separated Elementor variant). The wall-clock string is stored verbatim — timezone
-   interpretation stays in aosev_ts(). Returns '' for malformed input; the caller keeps the
-   previously stored value in that case. */
+   space-separated Elementor variant), and — because a browser without a native picker degrades
+   the field to plain text — the common HUMAN-TYPED formats too (d/m/Y H:i, d.m.Y, 12-hour with
+   am/pm, "15 August 2026 14:00"), normalised to Y-m-d\TH:i. The wall-clock string is stored
+   verbatim — timezone interpretation stays in aosev_ts(). Returns '' only for input that no
+   interpretation understands; the caller keeps the previously stored value in that case. */
 function aosev_clean_dt( $raw ) {
 	$raw = trim( str_replace( ' ', 'T', sanitize_text_field( (string) $raw ) ) );
 	if ( '' === $raw ) { return ''; }
@@ -1504,6 +1535,19 @@ function aosev_clean_dt( $raw ) {
 		$out = sprintf( '%04d-%02d-%02dT%02d:%02d', $m[1], $m[2], $m[3], $m[4], $m[5] );
 		if ( isset( $m[6] ) && '' !== $m[6] ) { $out .= ':' . sprintf( '%02d', $m[6] ); }
 		return $out;
+	}
+	// HUMAN-TYPED fallback: browsers without a native datetime-local picker degrade the field
+	// to plain text, and typed values like "15/08/2026 14:00" used to be silently dropped —
+	// the exact "I typed the date with my own eyes and it never stuck" failure. Try the common
+	// human formats (day-first, as written in Kenya/UK) strictly, in order.
+	$h = str_replace( 'T', ' ', $raw );
+	foreach ( array( 'd/m/Y H:i', 'd/m/Y g:i a', 'd-m-Y H:i', 'd.m.Y H:i', 'Y/m/d H:i', 'j F Y H:i', 'j F Y g:i a', 'F j, Y g:i a', 'j M Y H:i' ) as $fmt ) {
+		$d = DateTime::createFromFormat( '!' . $fmt, $h );
+		if ( $d instanceof DateTime ) {
+			$e = DateTime::getLastErrors();
+			if ( is_array( $e ) && ( $e['warning_count'] > 0 || $e['error_count'] > 0 ) ) { continue; }
+			return $d->format( 'Y-m-d\TH:i' );
+		}
 	}
 	return '';
 }
@@ -2021,7 +2065,7 @@ function aosev_el_doc_saved( $document, $data = null ) {
 		$receipt['stored'][ $key ] = mb_substr( (string) $v, 0, 80 );
 	}
 	// Leave a receipt so the next wp-admin visit reports whether the Elementor save carried a date.
-	if ( function_exists( 'set_transient' ) ) { set_transient( 'aosev_receipt_' . $id, $receipt, 600 ); }
+	aosev_receipt_store( $id, $receipt );
 }
 /* RENDER-TIME SAFETY NET: if a field is empty in our meta but Elementor stored a value
    for it in _elementor_page_settings, use it AND backfill the meta (self-heal). This
@@ -2133,6 +2177,34 @@ function aosev_settings_page() {
 		echo '<p>' . esc_html( sprintf( __( 'Published events: %1$d · without a start date: %2$d', 'aosars-events' ), count( (array) $ids ), count( $missing ) ) )
 			. ( $missing ? ' — <em>' . esc_html( implode( ', ', array_slice( $missing, 0, 10 ) ) ) . '</em>' : '' ) . '</p>';
 	}
+	// ---- SAVE FLIGHT RECORDER: the last save receipt of the 10 most recent events, as one
+	// copy-paste report. For each save it shows WHICH aosev_* fields the request contained,
+	// the RAW start value received, what was stored/rejected, the request type and browser —
+	// enough to pinpoint a failing entry flow without access to the site. ----
+	echo '<h3>' . esc_html__( 'Save flight recorder (copy & send this when a date does not stick)', 'aosars-events' ) . '</h3>';
+	$L   = array( 'AOSARS SAVE FLIGHT RECORDER — v' . AOSEV_VER . ' — ' . gmdate( 'Y-m-d H:i' ) . ' UTC' );
+	$evs = function_exists( 'get_posts' ) ? get_posts( array( 'post_type' => 'aosars_event', 'post_status' => 'any', 'numberposts' => 10 ) ) : array();
+	foreach ( (array) $evs as $ev ) {
+		$rec = get_post_meta( $ev->ID, '_aosev_last_save', true );
+		$cur = (string) get_post_meta( $ev->ID, '_aosev_start', true );
+		$L[] = sprintf( '#%d "%s" [%s] | stored start now: %s', $ev->ID, $ev->post_title, $ev->post_status, '' !== $cur ? $cur : '(EMPTY)' );
+		if ( is_array( $rec ) && ! empty( $rec['outcome'] ) ) {
+			$L[] = sprintf(
+				'     last save %s | outcome=%s%s | via=%s | fields in request: %s | raw start received: %s | stored: %s | rejected: %s',
+				! empty( $rec['t'] ) ? gmdate( 'Y-m-d H:i', (int) $rec['t'] ) . ' UTC' : '?',
+				$rec['outcome'], ! empty( $rec['recovered'] ) ? '+RECOVERED-VIA-MIRROR' : '',
+				isset( $rec['via'] ) ? $rec['via'] : '?',
+				! empty( $rec['seen'] ) ? implode( ',', (array) $rec['seen'] ) : '(NONE — request carried no aosev fields)',
+				isset( $rec['raw_start'] ) && null !== $rec['raw_start'] ? '"' . $rec['raw_start'] . '"' : '(not in request)',
+				! empty( $rec['stored'] ) ? implode( ',', array_keys( (array) $rec['stored'] ) ) : '(nothing)',
+				! empty( $rec['skipped'] ) ? wp_json_encode( $rec['skipped'] ) : '(nothing)'
+			);
+			if ( ! empty( $rec['ua'] ) ) { $L[] = '     browser: ' . $rec['ua']; }
+		} else {
+			$L[] = '     last save: (no receipt recorded — every save of this event predates v6.8.0, or none has our fields)';
+		}
+	}
+	echo '<textarea readonly style="width:100%;height:280px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px" onclick="this.select()">' . esc_textarea( implode( "\n", $L ) ) . '</textarea>';
 	echo '</div>';
 }
 add_filter( 'site_status_tests', aosev_guard( 'aosev_sh_register' ) );
