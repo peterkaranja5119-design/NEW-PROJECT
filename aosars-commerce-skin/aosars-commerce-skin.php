@@ -3,7 +3,7 @@
  * Plugin Name:       AOSARS Commerce Skin
  * Plugin URI:        https://aosars.com/
  * Description:       Non-interfering redesign skin for WooCommerce on AOSARS EDGE. Restyles shop cards, adds a mini-cart drawer, trust bar and toolbar via template overrides and hooks, without editing WooCommerce, Tutor LMS, the theme or the currency plugin. Per-module toggles in the admin menu.
- * Version:           1.0.3
+ * Version:           1.0.4
  * Author:            Karanja Maina
  * Author URI:        https://aosars.com/
  * License:           GPL-2.0-or-later
@@ -13,8 +13,8 @@
  * Requires at least: 5.6
  * Requires PHP:      7.4
  * WC requires at least: 7.0
- * WC tested up to:   9.0
- * Tested up to:      6.5
+ * WC tested up to:   10.9
+ * Tested up to:      7.0
  *
  * @package AOSARS_Commerce_Skin
  */
@@ -29,7 +29,7 @@ if ( defined( 'ACS_VER' ) ) {
 }
 
 /* CP3 - define every constant the code reads, at load. */
-define( 'ACS_VER', '1.0.3' );
+define( 'ACS_VER', '1.0.4' );
 define( 'ACS_FILE', __FILE__ );
 define( 'ACS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ACS_URL', plugin_dir_url( __FILE__ ) );

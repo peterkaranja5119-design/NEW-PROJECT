@@ -2,11 +2,11 @@
 Contributors: karanjamaina
 Tags: woocommerce, redesign, cards, mini-cart, africa
 Requires at least: 5.6
-Tested up to: 6.5
+Tested up to: 7.0
 Requires PHP: 7.4
 WC requires at least: 7.0
-WC tested up to: 9.0
-Stable tag: 1.0.3
+WC tested up to: 10.9
+Stable tag: 1.0.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -54,6 +54,16 @@ disables one feature, never the page.
 
 == Changelog ==
 
+= 1.0.4 =
+* Re-verified the full plugin on WordPress 7.0 + WooCommerce 10.9 (the live
+  site runs WordPress 7.0): activation, redesigned card override, badges,
+  trust bar, AJAX add-to-cart opening the mini-cart drawer, and the admin
+  module toggles. Headers now state Tested up to: WordPress 7.0 / WC 10.9.
+* No code changes beyond 1.0.3. On WordPress 7.0 the 1.0.2 version header did
+  not block activation; the bug that made the skin appear dead there was the
+  1.0.2 add-to-cart button dropping WooCommerce's ajax_add_to_cart class
+  (fixed in 1.0.3), so clicks reloaded the page and the drawer never opened.
+
 = 1.0.3 =
 * Fix: the plugin and readme headers required WordPress 7.0, which blocked
   installation and activation on WordPress 6.x sites ("does not meet minimum
@@ -85,9 +95,9 @@ disables one feature, never the page.
 
 == Compatibility matrix ==
 
-* WordPress: 5.6+ (verified on 6.5)
+* WordPress: 5.6+ (verified on 6.5 and 7.0)
 * PHP: 7.4+ (self-deactivates below 7.4)
-* WooCommerce: 7.0 – 9.x
+* WooCommerce: 7.0 – 10.x (verified on 9.0 and 10.9)
 * Themes/plugins: non-interfering; test with your active theme and the currency
   plugin on staging first.
 

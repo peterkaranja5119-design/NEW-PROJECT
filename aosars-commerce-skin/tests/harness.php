@@ -108,9 +108,9 @@ catch ( \Throwable $e ) { $threw = true; echo "FAULT guarded      FAIL (throw es
 if ( $threw ) { $ok = false; }
 
 /* --- V5 regression checks: the two faults that shipped in 1.0.2 --- */
-/* 1) The WP minimum must not exceed the version the target site runs (6.5 verified). */
+/* 1) The WP minimum must not exceed the version the target site runs (verified on 6.5 and 7.0). */
 $head = file_get_contents( $main );
-if ( preg_match( '/Requires at least:\s*([0-9.]+)/', $head, $m ) && version_compare( $m[1], '6.5', '>' ) ) {
+if ( preg_match( '/Requires at least:\s*([0-9.]+)/', $head, $m ) && version_compare( $m[1], '6.5', '>' ) /* keep installable on 6.x sites too */ ) {
 	$ok = false;
 	echo "HEADER requires    FAIL (Requires at least {$m[1]} blocks activation on the live site)\n";
 } else {

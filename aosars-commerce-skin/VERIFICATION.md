@@ -24,18 +24,23 @@ Pixel-matching sections 2–8 requires the **live rendered HTML** of: one shop c
 
 With exact classes, the CSS/template overrides can be locked and verified in a tight loop.
 
-## 1.0.3 — real-install verification (replaces stub-only claims)
+## 1.0.3/1.0.4 — real-install verification (replaces stub-only claims)
 
-The 1.0.2 stub harness passed while the plugin failed on a real site. 1.0.3 was
-verified in a real WordPress 6.5.5 + WooCommerce 9.0.2 + Storefront install:
+The 1.0.2 stub harness passed while the plugin failed on the live site. The
+live site runs WordPress 7.0, so activation was not the blocker there; the
+skin appeared dead because the 1.0.2 card button dropped WooCommerce's
+ajax_add_to_cart class, so add-to-cart clicks reloaded the page and the
+mini-cart drawer never opened (fixed in 1.0.3). Every check below was run in
+two real installs — WordPress 6.5.5 + WooCommerce 9.0.2 and, matching the
+live site, WordPress 7.0 + WooCommerce 10.9.3 (Storefront, real browser):
 
 | Check | Result |
 |---|---|
-| Activation on WordPress 6.5 | PASS (1.0.2 was blocked: headers required WP 7.0) |
+| Activation on WordPress 6.5 and 7.0 | PASS (on 6.5, 1.0.2 was blocked: headers required WP 7.0) |
 | Shop card override (`acs-pcard`) renders for every product | PASS |
 | Sale badge (-44% computed), Featured badge, category chip, stars | PASS |
 | Trust bar before shop loop | PASS |
-| CSS/JS enqueued (`?ver=1.0.3`), `body.acs-skin` present | PASS |
+| CSS/JS enqueued at the current version, `body.acs-skin` present | PASS |
 | AJAX add-to-cart -> drawer opens with item + cart total (real browser) | PASS (broken in 1.0.2 — see row 9) |
 | Continue shopping closes drawer | PASS |
 | Admin settings page, each module toggle off/on round-trip | PASS |
