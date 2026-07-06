@@ -1,0 +1,26 @@
+=== FINAL GREEN RUN Mon Jul  6 15:56:42 UTC 2026 — modified WooCommerce 10.7.0 (re-applied via embed.patch + folder copy), WP 7.0, standalone plugin deactivated ===
+--- static gates ---
+No syntax errors detected in wp-content/plugins/woocommerce/woocommerce.php
+skin lints: clean
+Only in woocommerce/includes: aosars-skin
+Files official/woocommerce/woocommerce.php and woocommerce/woocommerce.php differ
+--- core + pages ---
+front 200 | shop 200 | product 200 | cart 200 | checkout 200
+--- HPOS ---
+order #17 total 30.00 readback ok; HPOS on
+--- skin parity ---
+PARITY vs standalone baseline: EXACT MATCH
+cards on archive: 3
+ajax add-to-cart buttons: 3
+drawer opened: YES
+drawer item: Postgraduate Statistics Course
+drawer price/total: $99.00
+drawer closed via Continue: YES
+settings page h1: AOSARS Commerce Skin | module rows: 7
+saved. m9 checked now: false
+drawer present with m9 off: 0
+cards still render: 3
+drawer present with m9 back on: 1
+--- log audit ---
+0
+skin-attributable log lines: 0

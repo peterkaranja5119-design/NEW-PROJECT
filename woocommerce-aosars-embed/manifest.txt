@@ -1,0 +1,2 @@
+Only in /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/woocommerce/includes: aosars-skin
+Files /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/official/woocommerce/woocommerce.php and /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/woocommerce/woocommerce.php differ

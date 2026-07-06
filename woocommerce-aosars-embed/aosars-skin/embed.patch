@@ -1,0 +1,21 @@
+--- woocommerce.php.pristine
++++ woocommerce.php
+@@ -65,3 +65,18 @@
+ if ( class_exists( \Automattic\Jetpack\Connection\Rest_Authentication::class ) ) {
+ 	\Automattic\Jetpack\Connection\Rest_Authentication::init();
+ }
++
++// AOSARS-EMBED-BEGIN — AOSARS Commerce Skin embedded module (see includes/aosars-skin/README-EMBED.md).
++// Guarded: a missing or broken skin folder can never take WooCommerce down.
++$acs_embedded_loader = __DIR__ . '/includes/aosars-skin/loader.php';
++if ( is_readable( $acs_embedded_loader ) ) {
++	try {
++		require $acs_embedded_loader;
++	} catch ( \Throwable $acs_embedded_e ) {
++		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
++			error_log( '[AOSARS Commerce Skin embedded] ' . $acs_embedded_e->getMessage() );
++		}
++	}
++}
++unset( $acs_embedded_loader );
++// AOSARS-EMBED-END
