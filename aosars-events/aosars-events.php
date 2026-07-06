@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.8.0
+ * Version:           6.9.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.8.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.9.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.8.0' );
+define( 'AOSEV_VER', '6.9.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -1050,7 +1050,21 @@ function aosev_add_box() {
 	add_meta_box( 'aosev_schedule', __( '📅 Date & time', 'aosars-events' ), 'aosev_schedule_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_attend', __( '📍 How to attend', 'aosars-events' ), 'aosev_attend_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
 	add_meta_box( 'aosev_register', __( '🎟 Register & cost', 'aosars-events' ), 'aosev_register_box_html', 'aosars_event', 'side', 'high', array( '__block_editor_compatible_meta_box' => true ) );
-	add_meta_box( 'aosev_details', __( '📝 Event details', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	// The HTML content gets its OWN prominent box at the very top of the main column — this is
+	// where the event's details (the "About this event" section) are authored as HTML.
+	add_meta_box( 'aosev_content', __( '🧾 Event content (HTML) — the event details shown on the page', 'aosars-events' ), 'aosev_content_box_html', 'aosars_event', 'normal', 'high', array( '__block_editor_compatible_meta_box' => true ) );
+	add_meta_box( 'aosev_details', __( '📝 Event card & display', 'aosars-events' ), 'aosev_box_html', 'aosars_event', 'normal', 'default', array( '__block_editor_compatible_meta_box' => true ) );
+}
+/* 🧾 The HTML content box: one large monospace editor whose HTML renders as the single page's
+   "About this event" section, with the AOSARS typography. Nonce printed here too so a save
+   works no matter which boxes are visible. */
+function aosev_content_box_html( $post ) {
+	wp_nonce_field( 'aosev_save', 'aosev_nonce' );
+	echo '<style>#aosev_content textarea{width:100%;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:13px;min-height:320px;white-space:pre;line-height:1.5}#aosev_content .aosev-note{font-size:12px;color:#50575e;margin:0 0 8px;line-height:1.5}#aosev_content label{display:none}</style>';
+	echo '<p class="aosev-note">' . esc_html__( 'Write or paste the event’s HTML here — headings, paragraphs, lists, tables, images, even an embedded video. It renders on the event page as the “About this event” section with the AOSARS styling. You can also paste it in Elementor under ⚙ Settings → “📅 AOSARS Event details” → Event content (HTML). Leave blank to use the WordPress/Elementor body instead.', 'aosars-events' ) . '</p>';
+	$fields = aosev_fields();
+	aosev_field_html( 'custom_html', $fields['custom_html'], get_post_meta( $post->ID, '_aosev_custom_html', true ) );
+	echo '<p class="aosev-note" style="margin-top:8px">' . esc_html__( 'Example: <h2>What we cover</h2> <ul><li>Designing the study</li><li>Sampling & ethics</li></ul> <p><em>Led by Dr. A. Mwangi</em></p>', 'aosars-events' ) . '</p>';
 }
 /* Strip WordPress's stock clutter boxes from the event screen so only the four AOSARS
    boxes (plus Publish / Categories / Tags / Featured image) remain — the agreed design.
@@ -1067,7 +1081,8 @@ function aosev_box_map() {
 		'schedule' => array( 'start', 'end', 'tzone', 'mode' ),
 		'attend'   => array( 'platform', 'join_url', 'code', 'link_private', 'venue', 'address' ),
 		'register' => array( 'fee', 'capacity', 'taken', 'url', 'organiser' ),
-		'details'  => array( 'custom_html', 'summary', 'icon', 'use_builder' ),
+		'content'  => array( 'custom_html' ),
+		'details'  => array( 'summary', 'icon', 'use_builder' ),
 	);
 }
 /* SAVE RECEIPT: after each save, tell the editor exactly what was received and stored — a
@@ -1196,7 +1211,6 @@ function aosev_schedule_keys() { $m = aosev_box_map(); return $m['schedule']; }
    the page content. Discoverability beats a flat list. */
 function aosev_field_groups() {
 	return array(
-		__( '📝 Event content (HTML)', 'aosars-events' )  => array( 'custom_html' ),
 		__( '🃏 Event card (grid)', 'aosars-events' )    => array( 'icon', 'summary' ),
 		__( '⚙ Display', 'aosars-events' )               => array( 'use_builder' ),
 	);
@@ -1289,7 +1303,7 @@ function aosev_box_html( $post ) {
 	.aosev-mb .aosev-note{font-size:12px;color:#50575e;margin:0 0 8px}
 	.aosev-mb .aosev-fieldnote{font-size:11px;color:#646970;margin:2px 0 0}
 	@media(max-width:850px){.aosev-mb .aosev-cols{grid-template-columns:1fr}}</style><div class="aosev-mb">';
-	echo '<p class="aosev-note">' . esc_html__( 'The date, join link, cost and capacity are in the sidebar boxes on the right. Here you write the event body as HTML — headings, lists, tables, images, even an embedded video — and it renders as the “About this event” section. All optional; leave the content box blank to use the WordPress editor / Elementor instead.', 'aosars-events' ) . '</p>';
+	echo '<p class="aosev-note">' . esc_html__( 'The date, join link, cost and capacity are in the sidebar boxes; the event’s HTML content is in the 🧾 Event content box above. Here: the small card details and display options — all optional.', 'aosars-events' ) . '</p>';
 	$fields = aosev_fields();
 	$wide   = array( 'summary', 'custom_html', 'use_builder' );
 	foreach ( aosev_field_groups() as $heading => $keys ) {
@@ -2029,10 +2043,11 @@ function aosev_el_doc_controls( $document ) {
 	$document->add_control( 'aosev_join_url', array( 'label' => __( 'Join link — paste the Meet/Zoom/Teams URL', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'join_url' ), 'placeholder' => 'https://zoom.us/j/…' ) );
 	$document->add_control( 'aosev_venue', array( 'label' => __( 'Venue (for in-person / hybrid)', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'venue' ) ) );
 	$document->add_control( 'aosev_fee', array( 'label' => __( 'Fee (e.g. KES 2,500 or Free)', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::TEXT, 'default' => $g( 'fee' ) ) );
+	$document->add_control( 'aosev_custom_html', array( 'label' => __( 'Event content (HTML) — the details shown as “About this event”', 'aosars-events' ), 'type' => \Elementor\Controls_Manager::CODE, 'language' => 'html', 'rows' => 14, 'default' => $g( 'custom_html' ) ) );
 	$document->end_controls_section();
 }
 /* The eight fields the Elementor panel edits (control id = 'aosev_' + key). */
-function aosev_el_sync_keys() { return array( 'start', 'end', 'tzone', 'mode', 'platform', 'join_url', 'venue', 'fee' ); }
+function aosev_el_sync_keys() { return array( 'start', 'end', 'tzone', 'mode', 'platform', 'join_url', 'venue', 'fee', 'custom_html' ); }
 /* Validate/normalise one Elementor-supplied value for a given key; '' means rejected. */
 function aosev_el_clean( $key, $v ) {
 	if ( is_array( $v ) || null === $v ) { return ''; }
@@ -2041,6 +2056,9 @@ function aosev_el_clean( $key, $v ) {
 	if ( 'start' === $key || 'end' === $key ) { return aosev_clean_dt( $v ); } // validate typed (allowInput) dates too
 	if ( 'tzone' === $key ) { return array_key_exists( $v, aosev_timezones() ) ? $v : ''; }
 	if ( 'join_url' === $key ) { return esc_url_raw( $v ); }
+	if ( 'custom_html' === $key ) { // HTML content: same policy as the meta box — never sanitize_text_field (it would strip the markup)
+		return ( function_exists( 'current_user_can' ) && current_user_can( 'unfiltered_html' ) ) ? $v : wp_kses_post( $v );
+	}
 	return sanitize_text_field( $v );
 }
 add_action( 'elementor/document/after_save', aosev_guard( 'aosev_el_doc_saved' ), 10, 2 );
