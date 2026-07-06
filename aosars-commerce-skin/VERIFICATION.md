@@ -45,3 +45,17 @@ live site, WordPress 7.0 + WooCommerce 10.9.3 (Storefront, real browser):
 | Continue shopping closes drawer | PASS |
 | Admin settings page, each module toggle off/on round-trip | PASS |
 | Single product + cart pages render, no PHP errors in debug.log | PASS |
+
+## 1.0.5 — WooCommerce feature-compatibility verification
+
+WooCommerce classifies plugins per feature (compatible / incompatible /
+uncertain); "uncertain" plugins are flagged as incompatible with enabled
+features such as High-Performance Order Storage. Checked live via WooCommerce's
+FeaturesController on WordPress 7.0 + WooCommerce 10.9.3:
+
+| Check | 1.0.4 | 1.0.5 |
+|---|---|---|
+| custom_order_tables (HPOS) classification | uncertain (flagged) | compatible |
+| cart_checkout_blocks classification | uncertain (flagged) | compatible |
+| Order create/read with HPOS enabled, skin active | — | PASS |
+| Full front-end suite re-run with HPOS enabled | — | PASS |

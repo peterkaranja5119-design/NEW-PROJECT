@@ -1,12 +1,12 @@
 === AOSARS Commerce Skin ===
 Contributors: karanjamaina
 Tags: woocommerce, redesign, cards, mini-cart, africa
-Requires at least: 5.6
+Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
 WC requires at least: 7.0
 WC tested up to: 10.9
-Stable tag: 1.0.4
+Stable tag: 1.0.5
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -54,6 +54,22 @@ disables one feature, never the page.
 
 == Changelog ==
 
+= 1.0.5 =
+* Fix the WooCommerce rejection: declared compatibility with High-Performance
+  Order Storage (custom_order_tables) and Cart/Checkout Blocks via
+  FeaturesUtil on before_woocommerce_init. WooCommerce previously classified
+  the plugin as "uncertain" and flagged it as incompatible with those enabled
+  features. Both declarations are true: the skin is presentation-only, never
+  reads or writes orders, and never replaces the cart/checkout templates.
+  Verified: WooCommerce 10.9 now reports the plugin as compatible for both
+  features, with HPOS enabled, and orders create/read correctly under HPOS
+  with the skin active.
+* Adopted the AOSARS Events 6.10 plugin conventions: Requires at least:
+  WordPress 7.0, Requires PHP: 7.4, Tested up to: 7.0, Update URI: false, and
+  a loud admin notice (instead of a silent return) when two copies of the
+  plugin are installed at once, so a stale duplicate can no longer masquerade
+  as a failed update.
+
 = 1.0.4 =
 * Re-verified the full plugin on WordPress 7.0 + WooCommerce 10.9 (the live
   site runs WordPress 7.0): activation, redesigned card override, badges,
@@ -95,7 +111,7 @@ disables one feature, never the page.
 
 == Compatibility matrix ==
 
-* WordPress: 5.6+ (verified on 6.5 and 7.0)
+* WordPress: 7.0 (headers per the AOSARS Events conventions; verified on 7.0)
 * PHP: 7.4+ (self-deactivates below 7.4)
 * WooCommerce: 7.0 – 10.x (verified on 9.0 and 10.9)
 * Themes/plugins: non-interfering; test with your active theme and the currency

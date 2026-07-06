@@ -108,15 +108,23 @@ catch ( \Throwable $e ) { $threw = true; echo "FAULT guarded      FAIL (throw es
 if ( $threw ) { $ok = false; }
 
 /* --- V5 regression checks: the two faults that shipped in 1.0.2 --- */
-/* 1) The WP minimum must not exceed the version the target site runs (verified on 6.5 and 7.0). */
+/* 1) The WP minimum must not exceed the version the target site runs (WordPress 7.0). */
 $head = file_get_contents( $main );
-if ( preg_match( '/Requires at least:\s*([0-9.]+)/', $head, $m ) && version_compare( $m[1], '6.5', '>' ) /* keep installable on 6.x sites too */ ) {
+if ( preg_match( '/Requires at least:\s*([0-9.]+)/', $head, $m ) && version_compare( $m[1], '7.0', '>' ) ) {
 	$ok = false;
-	echo "HEADER requires    FAIL (Requires at least {$m[1]} blocks activation on the live site)\n";
+	echo "HEADER requires    FAIL (Requires at least {$m[1]} exceeds the live site's WordPress 7.0)\n";
 } else {
 	echo "HEADER requires    OK  (" . ( isset( $m[1] ) ? $m[1] : '?' ) . ")\n";
 }
-/* 2) The card button must keep WooCommerce's AJAX classes or the drawer never opens. */
+/* 2) WooCommerce must see the feature-compatibility declarations or it flags
+      the plugin as incompatible with HPOS / Cart-Checkout Blocks. */
+if ( false === strpos( $head, "declare_compatibility( 'custom_order_tables'" ) || false === strpos( $head, "declare_compatibility( 'cart_checkout_blocks'" ) ) {
+	$ok = false;
+	echo "WC compat decl     FAIL (missing FeaturesUtil declarations; WooCommerce will flag the plugin)\n";
+} else {
+	echo "WC compat decl     OK  (HPOS + cart/checkout blocks declared)\n";
+}
+/* 3) The card button must keep WooCommerce's AJAX classes or the drawer never opens. */
 $tpl = file_get_contents( dirname( __DIR__ ) . '/templates/woocommerce/content-product.php' );
 if ( false === strpos( $tpl, 'ajax_add_to_cart' ) || false === strpos( $tpl, 'add_to_cart_button' ) ) {
 	$ok = false;
