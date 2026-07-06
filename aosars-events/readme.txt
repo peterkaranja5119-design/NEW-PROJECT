@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.8.0
+Stable tag: 6.9.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,12 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.9.0 =
+* The HTML input you asked for. A dedicated "🧾 Event content (HTML)" box now sits at the top of the main column of the event editor — one large code editor where you write or paste the event's details HTML (headings, lists, tables, images, embeds). It renders on the event page as the "About this event" section with the AOSARS styling.
+* The same field is now ALSO in Elementor: ⚙ Settings → "📅 AOSARS Event details" → "Event content (HTML)" — a proper code control that syncs to the event (and self-heals at render like the date), so you can paste the HTML without leaving Elementor.
+* The old "📝 Event details" box is now "📝 Event card & display" and holds only the card blurb, icon and display option.
+* Verified end to end in a real WordPress: HTML saved via the box and via the Elementor panel both persist intact (tags preserved) and render on the single page; date + countdown unaffected.
 
 = 6.8.0 =
 * Hand-typed dates now save. In a browser without a native date picker the "Start date & time" field degrades to plain text, and values typed the human way — 15/08/2026 14:00, 15.08.2026, "15 August 2026 2:00 pm" — were silently rejected in EVERY previous version (the likeliest reason a date typed "with your own eyes" never stuck). These formats are now understood, normalised and saved.
