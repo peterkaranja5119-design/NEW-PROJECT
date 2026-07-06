@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       AOSARS Events
  * Description:       The full AOSARS events experience, faithful to the agreed mockup: portal with calendar widget, ticker, next-event counter, animated countdowns, timezone bar, grid/list, category and day filters, and a rich single-event view with add-to-calendar. Post-like CPT that is Elementor-editable, with native Elementor widgets. One guarded file, fail-safe by design; Elementor optional; no database table, no REST.
- * Version:           6.9.0
+ * Version:           6.10.0
  * Author:            Karanja Maina
  * License:           GPL-2.0-or-later
  * Text Domain:       aosars-events
@@ -20,12 +20,12 @@ if ( defined( 'AOSEV_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$aosev_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $aosev_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.9.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Events:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $aosev_dup_dir ) . '</code> (v6.10.0) is <em>NOT running</em> because an older copy (v' . esc_html( AOSEV_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Events”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
-define( 'AOSEV_VER', '6.9.0' );
+define( 'AOSEV_VER', '6.10.0' );
 define( 'AOSEV_OPTION', 'aosev_settings' );
 
 /* ---- embedded assets ---- */
@@ -731,7 +731,7 @@ define( 'AOSEV_HOME_CSS', <<<'AOSEV_HOME_CSS_END'
 .aosev-home .m-hybrid{background:var(--cyan);color:var(--indigo);}
 .aosev-home .card__body{padding:20px;display:flex;flex-direction:column;gap:9px;flex:1;}
 .aosev-home .card__body h3{font-size:1.05rem;font-weight:800;color:var(--indigo);line-height:1.3;margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
-.aosev-home .cdesc{font-size:.9rem;font-weight:500;color:var(--ink-soft);line-height:1.5;margin:2px 0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.aosev-home .cdesc{font-size:.9rem;font-weight:500;color:var(--ink-soft);line-height:1.5;margin:2px 0;display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;}
 .aosev-home .row{display:flex;align-items:center;gap:7px;font-size:13.5px;color:var(--ink-soft);}
 .aosev-home .row .g{width:16px;text-align:center;color:var(--ink-faint);flex:none;}
 .aosev-home .time{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;}
@@ -754,7 +754,7 @@ define( 'AOSEV_HOME_CSS', <<<'AOSEV_HOME_CSS_END'
 @keyframes aosevhpulse{0%{box-shadow:0 0 0 0 rgba(57,52,100,.5);}70%{box-shadow:0 0 0 8px rgba(57,52,100,0);}100%{box-shadow:0 0 0 0 rgba(57,52,100,0);}}
 .aosev-home .feat-body h3{margin:0;font-size:clamp(20px,2vw,26px);font-weight:800;color:var(--indigo);line-height:1.2;}
 .aosev-home .feat-when{font-size:13px;color:#393464;font-weight:600;margin:-2px 0 4px;}
-.aosev-home .feat-body .cdesc{-webkit-line-clamp:3;}
+.aosev-home .feat-body .cdesc{-webkit-line-clamp:5;}
 .aosev-home .caro-nav{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:20px;}
 .aosev-home .cbtn{width:44px;height:44px;border-radius:50%;border:1px solid var(--rule);background:#fff;color:var(--indigo);font-size:18px;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;font-family:inherit;}
 .aosev-home .cbtn:hover{background:var(--indigo);color:#fff;border-color:var(--indigo);}
@@ -1691,8 +1691,8 @@ function aosev_json_events( $limit = 200 ) {
 				'fee' => $g( 'fee' ) ? $g( 'fee' ) : 'Free', 'img' => has_post_thumbnail( $id ) ? get_the_post_thumbnail_url( $id, 'large' ) : '',
 				'start' => $start * 1000, 'durH' => $durH, 'cap' => ( '' === $cap ? null : (int) $cap ), 'taken' => (int) $g( 'taken' ),
 				'today' => ( $start && gmdate( 'Y-m-d', $start + (int) ( get_option( 'gmt_offset', 0 ) * 3600 ) ) === current_time( 'Y-m-d' ) ),
-				'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : $ex() ),
-				'blurb' => wp_strip_all_tags( $g( 'summary' ) ? $g( 'summary' ) : ( $g( 'lead' ) ? $g( 'lead' ) : $ex() ) ),
+				'lead' => $g( 'lead' ) ? $g( 'lead' ) : ( $g( 'summary' ) ? $g( 'summary' ) : ( '' !== $ex() ? $ex() : aosev_excerpt_of_html( $g( 'custom_html' ) ) ) ),
+				'blurb' => wp_strip_all_tags( $g( 'summary' ) ? $g( 'summary' ) : ( $g( 'lead' ) ? $g( 'lead' ) : ( '' !== $ex() ? $ex() : aosev_excerpt_of_html( $g( 'custom_html' ) ) ) ) ),
 				'addr' => $g( 'address' ),
 				'permalink' => get_permalink( $id ), 'url' => $g( 'url' ) ? $g( 'url' ) : get_permalink( $id ),
 				'body'   => aosev_body_html( $p ),
@@ -1728,6 +1728,17 @@ function aosev_json_events( $limit = 200 ) {
 	$cache[ $limit ] = array( $rows, $meets );
 	return $cache[ $limit ];
 }
+/* Plain-text excerpt of a rich-HTML field, for card blurbs: strip tags, collapse
+   whitespace, cut at a word boundary. Gives the home carousel/featured cards real text
+   for events whose details are authored solely in the 🧾 Event content (HTML) box. */
+function aosev_excerpt_of_html( $html, $len = 420 ) {
+	// Space out tag boundaries first, or "<h2>About</h2><p>This…" strips to "AboutThis…".
+	$t = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( str_replace( '<', ' <', (string) $html ) ) ) );
+	if ( '' === $t || mb_strlen( $t ) <= $len ) { return $t; }
+	$cut = mb_substr( $t, 0, $len );
+	$sp  = mb_strrpos( $cut, ' ' );
+	return rtrim( $sp ? mb_substr( $cut, 0, $sp ) : $cut, ' .,;:' ) . '…';
+}
 /* Derive a usable join URL from the Meet-code field. Admins commonly paste a full link
    into the code box — honour it (esc_url_raw) instead of double-prefixing; otherwise strip
    to Meet-code grammar and compose the URL, esc_url_raw-wrapped so quotes/spaces/control
@@ -1761,7 +1772,28 @@ function aosev_css() {
 	static $d = false; if ( $d ) { return ''; } $d = true;
 	return "<style id=\"aosev-css\">\n" . AOSEV_CSS . "\n</style>";
 }
+/* The app scripts are printed in wp_footer, NOT inline in the content stream: WordPress
+   content filters (convert_chars & friends) rewrite bare '&&' inside a <script> that a
+   shortcode returns into '&#038;&#038;' — a JS parse error that blanks the whole component
+   on any plain page/post. The JSON payload is immune (JSON_HEX_AMP), so it stays inline;
+   the executable bundles are requested here and emitted once in the footer. */
+function aosev_need_js( $which = null ) {
+	static $need = array();
+	if ( null !== $which ) { $need[ $which ] = true; }
+	return $need;
+}
+add_action( 'wp_footer', aosev_guard( 'aosev_print_footer_js' ), 5 );
+function aosev_print_footer_js() {
+	static $done = array();
+	foreach ( aosev_need_js() as $which => $x ) {
+		if ( isset( $done[ $which ] ) ) { continue; }
+		$done[ $which ] = true;
+		if ( 'app' === $which ) { echo "<script id=\"aosev-js\">\n" . AOSEV_JS . "\n</script>\n"; }
+		if ( 'home' === $which ) { echo "<script id=\"aosev-home-js\">\n" . AOSEV_HOME_JS . "\n</script>\n"; }
+	}
+}
 function aosev_js() {
+	// Kept for the takeover path (prints outside the content stream); one-shot per request.
 	static $d = false; if ( $d ) { return ''; } $d = true;
 	return "<script id=\"aosev-js\">\n" . AOSEV_JS . "\n</script>";
 }
@@ -1802,7 +1834,7 @@ function aosev_mount( $state = null ) {
 		// mounting JS (the "date/countdown never shows" bug). aosev_css()/aosev_js() are called
 		// from nowhere else, so this reorder is safe and the emitted order is unchanged.
 		$css = aosev_css();
-		$js  = aosev_js();
+		aosev_need_js( 'app' ); // executable JS prints in wp_footer (content-filter-proof)
 		list( $events, $meets ) = aosev_json_events();
 		$set  = aosev_settings();
 		$data = array( 'events' => $events, 'meets' => (object) $meets, 'allUrl' => isset( $set['all_url'] ) ? $set['all_url'] : '' );
@@ -1810,7 +1842,6 @@ function aosev_mount( $state = null ) {
 		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . $css;
 		$out .= '<script>window.AOSEV_DATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-app"><main class="wrap" id="AOSEV_ROOT"></main></div>';
-		$out .= $js;
 		return $out;
 	} catch ( \Throwable $e ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] mount: ' . $e->getMessage() ); }
@@ -1842,15 +1873,14 @@ function aosev_home_js() {
 }
 function aosev_home_mount() {
 	try {
-		$css = aosev_home_css(); // claim one-shot slots before json_events (see aosev_mount note)
-		$js  = aosev_home_js();
+		$css = aosev_home_css(); // claim one-shot slot before json_events (see aosev_mount note)
+		aosev_need_js( 'home' ); // executable JS prints in wp_footer (content-filter-proof)
 		list( $events, $meets ) = aosev_json_events();
 		$s    = aosev_settings();
 		$data = array( 'events' => $events, 'allUrl' => isset( $s['all_url'] ) ? $s['all_url'] : '' );
 		$out  = "\n<!-- aosars-events v" . AOSEV_VER . " -->\n" . $css;
 		$out .= '<script>window.AOSEV_HDATA=' . aosev_encode_data( $data ) . ';</script>';
 		$out .= '<div class="aosev-home" id="AOSEV_HOME"></div>';
-		$out .= $js;
 		return $out;
 	} catch ( \Throwable $e ) {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) { error_log( '[AOSARS Events] home mount: ' . $e->getMessage() ); }

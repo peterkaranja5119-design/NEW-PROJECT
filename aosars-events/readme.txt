@@ -3,7 +3,7 @@ Contributors: Karanja Maina
 Requires at least: 7.0
 Tested up to: 7.0
 Requires PHP: 7.4
-Stable tag: 6.9.0
+Stable tag: 6.10.0
 License: GPL-2.0-or-later
 
 The full AOSARS events experience, faithful to the agreed mockup: a portal with a
@@ -22,6 +22,11 @@ One guarded file: every hook is wrapped so a fault degrades that feature instead
 of crashing the site. No database table, no REST routes, Elementor optional.
 
 == Changelog ==
+
+= 6.10.0 =
+* Home component descriptions: the rotating carousel cards now show up to 4 lines of the event description (was 2) and the featured "next event" up to 5 lines (was 3).
+* Card text now falls back to the 🧾 Event content (HTML): when an event has no card blurb, the description is derived from the event's HTML details (tags stripped, cut at a word boundary) — so events authored purely in the HTML box no longer show empty cards.
+* FIX: on a plain page or post, WordPress content filters corrupted the component's inline script ("&&" became "&#038;&#038;"), which could blank the whole home component/portal. The executable scripts now print in the footer, outside the content stream — filter-proof on every page type. (Elementor-placed shortcodes were unaffected, which is why the live homepage still worked.)
 
 = 6.9.0 =
 * The HTML input you asked for. A dedicated "🧾 Event content (HTML)" box now sits at the top of the main column of the event editor — one large code editor where you write or paste the event's details HTML (headings, lists, tables, images, embeds). It renders on the event page as the "About this event" section with the AOSARS styling.
