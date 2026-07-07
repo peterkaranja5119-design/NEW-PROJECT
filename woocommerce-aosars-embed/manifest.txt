@@ -1,2 +1,11 @@
-Only in /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/woocommerce/includes: aosars-skin
-Files /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/official/woocommerce/woocommerce.php and /tmp/claude-0/-home-user-NEW-PROJECT/0298bd69-c858-54e3-8254-dad08b832ba0/scratchpad/wcmod/woocommerce/woocommerce.php differ
+Change inventory vs pristine WooCommerce 10.7.0 (diff -qr):
+
+Only in <embedded>/includes: aosars-skin
+Files <pristine-10.7.0>/woocommerce.php and <embedded>/woocommerce.php differ
+
+(2 changes total: the aosars-skin folder, and the guarded AOSARS-EMBED
+loader block appended to woocommerce.php. Nothing else touched.)
+
+Skin version embedded: 1.1.0
+Deliverable: woocommerce-10.7.0-aosars-embedded.zip (in this folder)
+Rebuild procedure: aosars-skin/README-EMBED.md section 3.

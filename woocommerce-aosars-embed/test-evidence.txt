@@ -1,26 +1,36 @@
-=== FINAL GREEN RUN Mon Jul  6 15:56:42 UTC 2026 — modified WooCommerce 10.7.0 (re-applied via embed.patch + folder copy), WP 7.0, standalone plugin deactivated ===
---- static gates ---
-No syntax errors detected in wp-content/plugins/woocommerce/woocommerce.php
-skin lints: clean
-Only in woocommerce/includes: aosars-skin
-Files official/woocommerce/woocommerce.php and woocommerce/woocommerce.php differ
---- core + pages ---
-front 200 | shop 200 | product 200 | cart 200 | checkout 200
---- HPOS ---
-order #17 total 30.00 readback ok; HPOS on
---- skin parity ---
-PARITY vs standalone baseline: EXACT MATCH
-cards on archive: 3
-ajax add-to-cart buttons: 3
-drawer opened: YES
-drawer item: Postgraduate Statistics Course
-drawer price/total: $99.00
-drawer closed via Continue: YES
-settings page h1: AOSARS Commerce Skin | module rows: 7
-saved. m9 checked now: false
-drawer present with m9 off: 0
-cards still render: 3
-drawer present with m9 back on: 1
---- log audit ---
-0
-skin-attributable log lines: 0
+Embedded WooCommerce 10.7.0 + AOSARS Commerce Skin 1.1.0 — verification run
+
+Environment: fresh WordPress (latest) + this embedded WooCommerce 10.7.0,
+Storefront, SQLite, PHP 8.4, real Chromium browser. NO standalone skin
+plugin installed — everything below is the embedded copy.
+
+Pre-checks:
+- grep -c "AOSARS-EMBED" woocommerce.php  -> 2 markers
+- php -l woocommerce.php                  -> no syntax errors
+- diff -qr vs pristine 10.7.0             -> exactly 2 changes (see manifest.txt)
+
+47-check Playwright suite: ALL GREEN (run twice)
+- Shop: skin body classes, trust bar, 6 redesigned cards, toolbar (category
+  + sort selects, Apply, live count, pills), stock ordering/result-count rows
+  removed.
+- Toolbar round-trip: filter to e-books -> exactly its 3 products; price-asc
+  order verified; active pill state on the term archive.
+- Single product: trust strip, quantity steppers (+/- change the input),
+  sticky add-to-cart bar hidden until the buy box scrolls out then opens,
+  sticky add fires WooCommerce AJAX and opens the mini-cart drawer naming
+  the product and cart total; related products render as the 3-up rail with
+  two arrows.
+- Archive add-to-cart: drawer opens; Continue shopping closes it.
+- Cart (classic): item rows card-styled (computed border-radius 16px),
+  totals card styled, steppers present, round remove buttons.
+- Checkout (classic): step 1 "Your details" and step 2 "Order & payment"
+  headings, accepted-payments strip with 5 badges, customer-details card
+  styled, place-order button present.
+- Admin: settings page shows all 9 module toggles; toggling M6/M2 off
+  removes the toolbar (stock ordering restored) and sticky/steppers/trust;
+  toggling back on restores them.
+- Blocks safety: wp:woocommerce/cart and wp:woocommerce/checkout pages mount
+  with zero JS errors while the skin is active.
+- Zero unexpected JS page errors across the whole run (external Google Fonts
+  requests are blocked by the test sandbox and excluded; they load normally
+  on a real site).
