@@ -6,7 +6,7 @@ Tested up to: 7.0
 Requires PHP: 7.4
 WC requires at least: 7.0
 WC tested up to: 10.9
-Stable tag: 1.0.5
+Stable tag: 1.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -31,7 +31,17 @@ Features:
   Checkout / View cart / Continue shopping with an instant-download reassurance.
 * Store-wide trust bar (also available as the [acs_trust_bar] shortcode).
 * A [acs_products] shortcode that renders a skinned product grid.
-* Light presentation skin for the single product, cart and checkout.
+* Full shop toolbar / filter bar: category select, sort select, Apply button,
+  live result count and category pills (replaces the stock ordering row).
+* Single product redesign: framed gallery, pill tabs, quantity steppers, a
+  trust strip under add-to-cart and a sticky add-to-cart bar that appears when
+  the buy box scrolls away.
+* Related products as a 3-up rail with scroll-snap and previous/next arrows.
+* Cart as card rows with a styled totals card (classic and blocks carts).
+* Checkout grouped into numbered step cards with an accepted-payments strip
+  (filterable via acs_payment_strip_methods; gateway availability stays with
+  your payment/currency plugins).
+* Events-card skin for the AOSARS/Simple Events list markup, incl. empty state.
 * A self-launching admin menu with an on/off toggle for every module.
 
 == Installation ==
@@ -53,6 +63,33 @@ No. Every callback is wrapped in a fatal firewall; a fault logs under WP_DEBUG a
 disables one feature, never the page.
 
 == Changelog ==
+
+= 1.1.0 =
+* Shop toolbar / filter bar (M6, new): category + sort selects with an Apply
+  button, live "N items" count and category pills. Replaces the stock
+  result-count/ordering row (WooCommerce core and Storefront re-hooks) and
+  restores it exactly when the module is toggled off.
+* Single product (M2, now structural): quantity steppers, framed gallery and
+  pill tabs, a trust strip under add-to-cart, and a sticky add-to-cart bar
+  that reveals when the buy box leaves the viewport — its button keeps
+  WooCommerce's ajax_add_to_cart classes, so it feeds the mini-cart drawer.
+* Related products carousel (M3, new): 3-up scroll-snap rail with
+  previous/next arrows via woocommerce_output_related_products_args + JS.
+* Cart skin (M4, now structural): classic cart rows become cards with a
+  styled totals card; blocks cart gets the same card treatment via CSS.
+* Checkout skin (M5, now structural): numbered step headings (classic
+  checkout hooks), card-grouped fields/order review, and an accepted-payments
+  strip (M-Pesa, Airtel Money, Visa, Mastercard, Flutterwave — filterable via
+  acs_payment_strip_methods).
+* Events cards skin (M8, new): AOSARS/Simple Events list, item, meta and
+  empty-state styling.
+* Fix: module flags passed to JS via wp_localize_script are strings, so a
+  disabled module's "0" was truthy and the quantity steppers survived
+  toggling the single-product module off. Flags are now compared strictly.
+* Verified in a real install (WordPress + WooCommerce latest, Storefront,
+  real browser): 47-check suite covering every module, filter round-trips,
+  drawer regressions, admin toggle off/on round-trips, and blocks
+  cart/checkout mounting with no JS errors.
 
 = 1.0.5 =
 * Fix the WooCommerce rejection: declared compatibility with High-Performance

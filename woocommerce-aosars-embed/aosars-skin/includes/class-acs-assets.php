@@ -58,6 +58,8 @@ class Assets {
 			'ACS_DATA',
 			array(
 				'drawer'      => enabled( 'm9' ) ? 1 : 0,
+				'single'      => enabled( 'm2' ) ? 1 : 0,
+				'carousel'    => enabled( 'm3' ) ? 1 : 0,
 				'cartUrl'     => function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '',
 				'checkoutUrl' => function_exists( 'wc_get_checkout_url' ) ? wc_get_checkout_url() : '',
 				'i18n'        => array(

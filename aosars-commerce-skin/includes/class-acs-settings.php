@@ -28,7 +28,9 @@ class Settings {
 			'm3' => __( 'Related products carousel (M3)', 'aosars-commerce-skin' ),
 			'm4' => __( 'Cart skin (M4)', 'aosars-commerce-skin' ),
 			'm5' => __( 'Checkout skin (M5)', 'aosars-commerce-skin' ),
+			'm6' => __( 'Shop toolbar / filter bar (M6)', 'aosars-commerce-skin' ),
 			'm7' => __( 'Trust bar & widgets (M7)', 'aosars-commerce-skin' ),
+			'm8' => __( 'Events & course cards skin (M8)', 'aosars-commerce-skin' ),
 			'm9' => __( 'Mini-cart drawer (M9)', 'aosars-commerce-skin' ),
 		);
 	}

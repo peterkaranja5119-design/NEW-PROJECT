@@ -37,8 +37,76 @@
 		if ( 'Escape' === e.key && drawer && drawer.classList.contains( 'open' ) ) { close(); }
 	} );
 
+	/* ---------- M2: quantity steppers + sticky add-to-cart bar ---------- */
+	if ( '1' === String( ACS_DATA.single ) ) {
+		// Steppers on every WooCommerce qty input (single product + classic cart).
+		$( '.quantity input.qty' ).each( function () {
+			var input = this;
+			if ( input.closest( '.acs-qty' ) ) { return; }
+			var wrap = document.createElement( 'span' );
+			wrap.className = 'acs-qty';
+			input.parentNode.insertBefore( wrap, input );
+			var minus = document.createElement( 'button' );
+			minus.type = 'button'; minus.className = 'acs-qty-btn acs-qty-minus'; minus.textContent = '−';
+			minus.setAttribute( 'aria-label', 'Decrease quantity' );
+			var plus = document.createElement( 'button' );
+			plus.type = 'button'; plus.className = 'acs-qty-btn acs-qty-plus'; plus.textContent = '+';
+			plus.setAttribute( 'aria-label', 'Increase quantity' );
+			wrap.appendChild( minus ); wrap.appendChild( input ); wrap.appendChild( plus );
+			function step( dir ) {
+				var v = parseFloat( input.value ) || 0;
+				var min = parseFloat( input.min ); var max = parseFloat( input.max );
+				var next = v + dir;
+				if ( ! isNaN( min ) && next < min ) { next = min; }
+				if ( ! isNaN( max ) && max > 0 && next > max ) { next = max; }
+				input.value = next;
+				$( input ).trigger( 'change' );
+			}
+			minus.addEventListener( 'click', function () { step( -1 ); } );
+			plus.addEventListener( 'click', function () { step( 1 ); } );
+		} );
+
+		// Sticky bar: reveal once the real add-to-cart button leaves the viewport.
+		var sticky = document.getElementById( 'acsSticky' );
+		var anchor = document.querySelector( '.summary .cart, form.cart' );
+		if ( sticky && anchor && 'IntersectionObserver' in window ) {
+			new IntersectionObserver( function ( entries ) {
+				var visible = entries[ 0 ].isIntersecting;
+				sticky.classList.toggle( 'open', ! visible );
+				sticky.setAttribute( 'aria-hidden', visible ? 'true' : 'false' );
+			}, { threshold: 0 } ).observe( anchor );
+		}
+	}
+
+	/* ---------- M3: related-products rail (3-up, scroll-snap + arrows) ---------- */
+	if ( '1' === String( ACS_DATA.carousel ) ) {
+		$( '.related.products ul.products, section.related ul.products' ).first().each( function () {
+			var list = this;
+			list.classList.add( 'acs-rail' );
+			var wrap = document.createElement( 'div' );
+			wrap.className = 'acs-rail-wrap';
+			list.parentNode.insertBefore( wrap, list );
+			wrap.appendChild( list );
+			function arrow( dir, label ) {
+				var b = document.createElement( 'button' );
+				b.type = 'button';
+				b.className = 'acs-rail-btn acs-rail-' + ( 1 === dir ? 'next' : 'prev' );
+				b.setAttribute( 'aria-label', label );
+				b.innerHTML = 1 === dir ? '&rsaquo;' : '&lsaquo;';
+				b.addEventListener( 'click', function () {
+					var card = list.querySelector( 'li.product' );
+					var w = card ? card.getBoundingClientRect().width + 22 : list.clientWidth / 3;
+					list.scrollBy( { left: dir * w, behavior: reduce ? 'auto' : 'smooth' } );
+				} );
+				return b;
+			}
+			wrap.appendChild( arrow( -1, 'Previous products' ) );
+			wrap.appendChild( arrow( 1, 'Next products' ) );
+		} );
+	}
+
 	// Only run the drawer if the module is enabled.
-	if ( ! ACS_DATA.drawer ) { return; }
+	if ( '1' !== String( ACS_DATA.drawer ) ) { return; }
 
 	/* WooCommerce fires `added_to_cart` on the body after a successful AJAX add:
 	   ( event, fragments, cart_hash, $button ). Build a confirmation from the

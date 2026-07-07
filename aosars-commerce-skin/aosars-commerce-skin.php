@@ -3,7 +3,7 @@
  * Plugin Name:       AOSARS Commerce Skin
  * Plugin URI:        https://aosars.com/
  * Description:       Non-interfering redesign skin for WooCommerce on AOSARS EDGE. Restyles shop cards, adds a mini-cart drawer, trust bar and toolbar via template overrides and hooks, without editing WooCommerce, Tutor LMS, the theme or the currency plugin. Per-module toggles in the admin menu.
- * Version:           1.0.5
+ * Version:           1.1.0
  * Author:            Karanja Maina
  * Author URI:        https://aosars.com/
  * License:           GPL-2.0-or-later
@@ -30,14 +30,14 @@ if ( defined( 'ACS_VER' ) ) {
 	if ( function_exists( 'add_action' ) ) {
 		$acs_dup_dir = basename( dirname( __FILE__ ) );
 		add_action( 'admin_notices', function () use ( $acs_dup_dir ) {
-			echo '<div class="notice notice-error"><p><strong>AOSARS Commerce Skin:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $acs_dup_dir ) . '</code> (v1.0.5) is <em>NOT running</em> because an older copy (v' . esc_html( ACS_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Commerce Skin”, delete the rest, then reactivate the one you kept.</p></div>';
+			echo '<div class="notice notice-error"><p><strong>AOSARS Commerce Skin:</strong> two copies of the plugin are active. The copy in <code>wp-content/plugins/' . esc_html( $acs_dup_dir ) . '</code> (v1.1.0) is <em>NOT running</em> because an older copy (v' . esc_html( ACS_VER ) . ') loaded first. Open the Plugins screen, keep ONE “AOSARS Commerce Skin”, delete the rest, then reactivate the one you kept.</p></div>';
 		} );
 	}
 	return;
 }
 
 /* CP3 - define every constant the code reads, at load. */
-define( 'ACS_VER', '1.0.5' );
+define( 'ACS_VER', '1.1.0' );
 define( 'ACS_FILE', __FILE__ );
 define( 'ACS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'ACS_URL', plugin_dir_url( __FILE__ ) );

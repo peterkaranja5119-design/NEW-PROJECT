@@ -1,6 +1,6 @@
 <?php
 /**
- * AOSARS Commerce Skin — EMBEDDED variant (v1.0.5), loaded by a single guarded
+ * AOSARS Commerce Skin — EMBEDDED variant (v1.1.0), loaded by a single guarded
  * require appended to woocommerce.php (marker: AOSARS-EMBED). The standalone
  * "AOSARS Commerce Skin" plugin is the source of truth for this code; every
  * file under includes/, templates/, public/ and admin/ here is a byte-identical
@@ -46,7 +46,7 @@ if ( defined( 'ACS_VER' ) ) {
 /* CP3 - define every constant the code reads, at load. plugin_dir_path/url
    work for any file under wp-content/plugins, so these resolve to
    .../plugins/woocommerce/includes/aosars-skin/. */
-define( 'ACS_VER', '1.0.5' );
+define( 'ACS_VER', '1.1.0' );
 define( 'ACS_EMBEDDED', true );
 define( 'ACS_FILE', __FILE__ );
 define( 'ACS_DIR', plugin_dir_path( __FILE__ ) );

@@ -1,6 +1,6 @@
 # AOSARS Commerce Skin — embedded in WooCommerce
 
-This WooCommerce 10.7.0 copy carries the AOSARS Commerce Skin (v1.0.5) **inside**
+This WooCommerce 10.7.0 copy carries the AOSARS Commerce Skin (v1.1.0) **inside**
 the plugin, per the site owner's request. The standalone "AOSARS Commerce Skin"
 plugin remains the source of truth for the skin code; everything in this folder
 except `loader.php` is a byte-identical copy of that tested plugin.
@@ -63,7 +63,7 @@ Decide one of:
 - Instant rollback of the skin only: delete `includes/aosars-skin/` and remove
   the marker block from `woocommerce.php` (or reinstall stock WooCommerce).
   WooCommerce runs stock — verified.
-- Standalone plugin spare: `aosars-commerce-skin-1.0.5-standalone.zip` (kept
+- Standalone plugin spare: `aosars-commerce-skin-1.1.0-standalone.zip` (kept
   with the delivery) installs the identical skin as a normal plugin — the
   safer long-term setup if re-embedding after updates becomes a chore.
 
